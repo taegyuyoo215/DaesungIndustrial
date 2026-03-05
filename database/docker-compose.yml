@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: motoriq-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: motoriq
+      POSTGRES_USER: motoriq_user
+      POSTGRES_PASSWORD: motoriq_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motoriq_user -d motoriq"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  timescaledb_data:
+    driver: local
