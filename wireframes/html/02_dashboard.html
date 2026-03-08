@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>MOTOR-IQ — 대시보드</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.alarm-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #ef4444;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #991b1b;
+  margin-bottom: 16px;
+  border-radius: 6px;
+}
+.alarm-banner span { flex: 1; font-weight: 500; }
+.alarm-banner .ack-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.alarm-banner .close-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* Mini chart in motor card */
+.mini-chart {
+  height: 36px;
+  background: #f9fafb;
+  border-radius: 4px;
+  margin: 8px 0;
+  overflow: hidden;
+  position: relative;
+}
+.mini-chart svg { position: absolute; bottom: 0; left: 0; }
+
+.recent-alarm-list .alarm-row { padding: 10px 0; }
+.section-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 16px 0;
+}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">MOTOR<span>-IQ</span></div>
+    <div class="sidebar-subtitle">QM30VT3 예지보전 솔루션</div>
+    <nav class="sidebar-menu">
+      <div class="menu-item active"><span class="icon">⬛</span> 대시보드</div>
+      <div class="menu-item"><span class="icon">🔔</span> 알람 이력 <span class="menu-badge">3</span></div>
+      <div class="menu-item"><span class="icon">🔧</span> 정비 이력</div>
+      <div class="menu-item"><span class="icon">📊</span> 보고서</div>
+      <div class="menu-item"><span class="icon">⚙️</span> 설정</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-name">김엔지니어</div>
+      <div class="user-role">보전 엔지니어</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-area">
+    <div class="topbar">
+      <span class="topbar-title">대시보드</span>
+      <div class="topbar-actions">
+        <button class="bell-btn">🔔<span class="bell-badge">3</span></button>
+        <span class="user-chip">김엔지니어 ▾</span>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Alarm Banner -->
+      <div class="alarm-banner">
+        <span>🔴</span>
+        <span><strong>[경보]</strong> 컴프레서 #3 — 베어링 외륜 결함 의심 (14:23) &nbsp;·&nbsp; A동 2라인</span>
+        <button class="ack-btn">확인</button>
+        <button class="close-btn">✕</button>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="stat-cards">
+        <div class="stat-card stat-total">
+          <div class="stat-icon">⬛</div>
+          <div class="stat-label">전체 모터</div>
+          <div class="stat-value">24</div>
+        </div>
+        <div class="stat-card stat-ok">
+          <div class="stat-icon">🟢</div>
+          <div class="stat-label">정상</div>
+          <div class="stat-value">20</div>
+        </div>
+        <div class="stat-card stat-warn">
+          <div class="stat-icon">🟡</div>
+          <div class="stat-label">주의</div>
+          <div class="stat-value">3</div>
+        </div>
+        <div class="stat-card stat-alarm active">
+          <div class="stat-icon">🔴</div>
+          <div class="stat-label">경보</div>
+          <div class="stat-value">1</div>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="filter-bar" style="margin-bottom:0;">
+          <select class="filter-select"><option>전체 상태</option></select>
+          <select class="filter-select"><option>전체 라인</option></select>
+          <input class="search-input" placeholder="🔍 모터명, 위치 검색">
+        </div>
+      </div>
+
+      <!-- Motor Grid -->
+      <div class="motor-grid">
+
+        <!-- Card: 경보 -->
+        <div class="motor-card status-alarm">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="motor-name">컴프레서 #3</div>
+              <div class="motor-location">📍 A동 2라인</div>
+            </div>
+            <span class="badge badge-red">🔴 경보</span>
+          </div>
+          <div class="motor-values">
+            <div class="motor-val-item alarm">
+              <div class="motor-val-num">8.2 <span class="motor-val-unit">mm/s</span></div>
+              <div class="motor-val-label">RMS Velocity Y</div>
+            </div>
+            <div class="motor-val-item alarm">
+              <div class="motor-val-num">74 <span class="motor-val-unit">°C</span></div>
+              <div class="motor-val-label">온도 ↑</div>
+            </div>
+            <div class="motor-val-item alarm">
+              <div class="motor-val-num">4.1 <span class="motor-val-unit">g</span></div>
+              <div class="motor-val-label">HF Accel Y</div>
+            </div>
+            <div class="motor-val-item alarm">
+              <div class="motor-val-num">9.8</div>
+              <div class="motor-val-label">Kurtosis Y</div>
+            </div>
+          </div>
+          <div class="mini-chart">
+            <svg width="100%" height="36" viewBox="0 0 180 36" preserveAspectRatio="none">
+              <polyline points="0,30 30,28 60,24 90,18 120,12 150,7 180,4"
+                fill="none" stroke="#ef4444" stroke-width="2"/>
+              <line x1="0" y1="16" x2="180" y2="16" stroke="#ef4444" stroke-dasharray="4" stroke-width="1" opacity="0.4"/>
+            </svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;color:#9ca3af;">VIBE-IQ: 경보 · 14:23</span>
+            <button class="btn btn-primary btn-sm">상세보기 →</button>
+          </div>
+        </div>
+
+        <!-- Card: 주의 -->
+        <div class="motor-card status-warn">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="motor-name">컴프레서 #2</div>
+              <div class="motor-location">📍 A동 1라인</div>
+            </div>
+            <span class="badge badge-yellow">🟡 주의</span>
+          </div>
+          <div class="motor-values">
+            <div class="motor-val-item warn">
+              <div class="motor-val-num">3.8 <span class="motor-val-unit">mm/s</span></div>
+              <div class="motor-val-label">RMS Velocity Y</div>
+            </div>
+            <div class="motor-val-item warn">
+              <div class="motor-val-num">58 <span class="motor-val-unit">°C</span></div>
+              <div class="motor-val-label">온도 ↑</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">1.8 <span class="motor-val-unit">g</span></div>
+              <div class="motor-val-label">HF Accel Y</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">3.2</div>
+              <div class="motor-val-label">Kurtosis Y</div>
+            </div>
+          </div>
+          <div class="mini-chart">
+            <svg width="100%" height="36" viewBox="0 0 180 36" preserveAspectRatio="none">
+              <polyline points="0,28 40,26 80,22 120,18 160,16 180,15"
+                fill="none" stroke="#f59e0b" stroke-width="2"/>
+            </svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;color:#9ca3af;">VIBE-IQ: 주의 · 14:22</span>
+            <button class="btn btn-primary btn-sm">상세보기 →</button>
+          </div>
+        </div>
+
+        <!-- Card: 정상 -->
+        <div class="motor-card status-ok">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="motor-name">컴프레서 #1</div>
+              <div class="motor-location">📍 A동 1라인</div>
+            </div>
+            <span class="badge badge-green">🟢 정상</span>
+          </div>
+          <div class="motor-values">
+            <div class="motor-val-item">
+              <div class="motor-val-num">1.2 <span class="motor-val-unit">mm/s</span></div>
+              <div class="motor-val-label">RMS Velocity Y</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">42 <span class="motor-val-unit">°C</span></div>
+              <div class="motor-val-label">온도</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">0.7 <span class="motor-val-unit">g</span></div>
+              <div class="motor-val-label">HF Accel Y</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">1.9</div>
+              <div class="motor-val-label">Kurtosis Y</div>
+            </div>
+          </div>
+          <div class="mini-chart">
+            <svg width="100%" height="36" viewBox="0 0 180 36" preserveAspectRatio="none">
+              <polyline points="0,28 40,27 80,28 120,26 160,27 180,27"
+                fill="none" stroke="#10b981" stroke-width="2"/>
+            </svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;color:#9ca3af;">VIBE-IQ: 정상 · 14:23</span>
+            <button class="btn btn-outline btn-sm">상세보기 →</button>
+          </div>
+        </div>
+
+        <!-- Card: 정상 -->
+        <div class="motor-card status-ok">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="motor-name">펌프 #1</div>
+              <div class="motor-location">📍 B동 1라인</div>
+            </div>
+            <span class="badge badge-green">🟢 정상</span>
+          </div>
+          <div class="motor-values">
+            <div class="motor-val-item">
+              <div class="motor-val-num">0.9 <span class="motor-val-unit">mm/s</span></div>
+              <div class="motor-val-label">RMS Velocity Y</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">39 <span class="motor-val-unit">°C</span></div>
+              <div class="motor-val-label">온도</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">0.5 <span class="motor-val-unit">g</span></div>
+              <div class="motor-val-label">HF Accel Y</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">1.7</div>
+              <div class="motor-val-label">Kurtosis Y</div>
+            </div>
+          </div>
+          <div class="mini-chart">
+            <svg width="100%" height="36" viewBox="0 0 180 36" preserveAspectRatio="none">
+              <polyline points="0,28 60,28 100,29 140,27 180,28"
+                fill="none" stroke="#10b981" stroke-width="2"/>
+            </svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;color:#9ca3af;">VIBE-IQ: 정상 · 14:21</span>
+            <button class="btn btn-outline btn-sm">상세보기 →</button>
+          </div>
+        </div>
+
+        <!-- Card: 정상 -->
+        <div class="motor-card status-ok">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="motor-name">펌프 #2</div>
+              <div class="motor-location">📍 B동 2라인</div>
+            </div>
+            <span class="badge badge-green">🟢 정상</span>
+          </div>
+          <div class="motor-values">
+            <div class="motor-val-item">
+              <div class="motor-val-num">1.1 <span class="motor-val-unit">mm/s</span></div>
+              <div class="motor-val-label">RMS Velocity Y</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">41 <span class="motor-val-unit">°C</span></div>
+              <div class="motor-val-label">온도</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">0.6 <span class="motor-val-unit">g</span></div>
+              <div class="motor-val-label">HF Accel Y</div>
+            </div>
+            <div class="motor-val-item">
+              <div class="motor-val-num">2.1</div>
+              <div class="motor-val-label">Kurtosis Y</div>
+            </div>
+          </div>
+          <div class="mini-chart">
+            <svg width="100%" height="36" viewBox="0 0 180 36" preserveAspectRatio="none">
+              <polyline points="0,26 60,27 100,26 140,28 180,27"
+                fill="none" stroke="#10b981" stroke-width="2"/>
+            </svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;color:#9ca3af;">VIBE-IQ: 정상 · 14:20</span>
+            <button class="btn btn-outline btn-sm">상세보기 →</button>
+          </div>
+        </div>
+
+        <!-- Card: 오프라인 -->
+        <div class="motor-card status-off">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="motor-name">환풍기 #1</div>
+              <div class="motor-location">📍 C동</div>
+            </div>
+            <span class="badge badge-gray">⬜ 오프라인</span>
+          </div>
+          <div style="text-align:center;padding:22px 0;color:#9ca3af;">
+            <div style="font-size:28px;margin-bottom:8px;">📡</div>
+            <div style="font-size:12px;font-weight:500;">센서 통신 두절</div>
+            <div style="font-size:11px;margin-top:3px;">마지막 수신: 12:10</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+            <span style="font-size:10px;color:#ef4444;">Modbus 오프라인</span>
+            <button class="btn btn-outline btn-sm">상세보기 →</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Recent Alarms -->
+      <div class="card">
+        <div class="section-header">
+          최근 알람
+          <a href="#" style="font-size:12px;color:#4f8ef7;text-decoration:none;">전체보기 →</a>
+        </div>
+        <div class="recent-alarm-list">
+          <div class="alarm-row">
+            <span class="alarm-icon">🔴</span>
+            <div class="alarm-body">
+              <div class="alarm-title">컴프레서 #3 — 베어링 외륜 결함 의심</div>
+              <div class="alarm-sub">BPFO 120Hz 에너지 급등 · A동 2라인</div>
+            </div>
+            <div class="alarm-time">14:23<br><span class="badge badge-red" style="font-size:10px;">미확인</span></div>
+          </div>
+          <div class="alarm-row">
+            <span class="alarm-icon">🟡</span>
+            <div class="alarm-body">
+              <div class="alarm-title">컴프레서 #2 — RMS Velocity 임계값 초과</div>
+              <div class="alarm-sub">Y축: 3.8 mm/s (임계 2.8) · A동 1라인</div>
+            </div>
+            <div class="alarm-time">13:51<br><span class="badge badge-yellow" style="font-size:10px;">미확인</span></div>
+          </div>
+          <div class="alarm-row">
+            <span class="alarm-icon">🟡</span>
+            <div class="alarm-body">
+              <div class="alarm-title">컴프레서 #2 — 온도 경고 수준 도달</div>
+              <div class="alarm-sub">58°C (임계 55°C) · A동 1라인</div>
+            </div>
+            <div class="alarm-time">13:47<br><span class="badge badge-yellow" style="font-size:10px;">미확인</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

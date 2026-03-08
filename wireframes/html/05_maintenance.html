@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>MOTOR-IQ — 정비 이력</title>
+<link rel="stylesheet" href="_shared.css">
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">MOTOR<span>-IQ</span></div>
+    <div class="sidebar-subtitle">QM30VT3 예지보전 솔루션</div>
+    <nav class="sidebar-menu">
+      <div class="menu-item"><span class="icon">⬛</span> 대시보드</div>
+      <div class="menu-item"><span class="icon">🔔</span> 알람 이력 <span class="menu-badge">3</span></div>
+      <div class="menu-item active"><span class="icon">🔧</span> 정비 이력</div>
+      <div class="menu-item"><span class="icon">📊</span> 보고서</div>
+      <div class="menu-item"><span class="icon">⚙️</span> 설정</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-name">김엔지니어</div>
+      <div class="user-role">보전 엔지니어</div>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <div class="topbar">
+      <span class="topbar-title">정비 이력</span>
+      <div class="topbar-actions">
+        <button class="bell-btn">🔔<span class="bell-badge">3</span></button>
+        <button class="btn btn-primary btn-sm">+ 정비 기록 추가</button>
+        <span class="user-chip">김엔지니어 ▾</span>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Summary -->
+      <div class="stat-cards" style="margin-bottom:16px;">
+        <div class="stat-card">
+          <div class="stat-label">이번 달 정비</div>
+          <div class="stat-value" style="color:#1f2937;font-size:22px;">4</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">이번 주 예정</div>
+          <div class="stat-value" style="color:#d97706;font-size:22px;">2</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">지연된 정비</div>
+          <div class="stat-value" style="color:#dc2626;font-size:22px;">1</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">총 정비 건수</div>
+          <div class="stat-value" style="color:#1f2937;font-size:22px;">18</div>
+        </div>
+      </div>
+
+      <!-- Filter -->
+      <div class="filter-bar" style="margin-bottom:14px;">
+        <select class="filter-select"><option>전체 모터</option><option>컴프레서 #1</option><option>컴프레서 #2</option><option>컴프레서 #3</option></select>
+        <select class="filter-select"><option>전체 유형</option><option>베어링 교체</option><option>오정렬 수정</option><option>윤활 보충</option><option>정기 점검</option></select>
+        <select class="filter-select"><option>최근 3개월</option><option>최근 6개월</option><option>전체</option></select>
+        <span style="margin-left:auto;font-size:12px;color:#6b7280;">총 18건</span>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="tab-bar" style="margin-bottom:14px;">
+          <div class="tab-item active">목록</div>
+          <div class="tab-item">캘린더</div>
+          <div class="tab-item">예정 정비</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>정비 일시</th>
+                <th>모터</th>
+                <th>위치</th>
+                <th>유형</th>
+                <th>담당자</th>
+                <th>교체 부품</th>
+                <th>다음 정비 예정</th>
+                <th>액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#fffbeb;">
+                <td style="font-weight:500;">2026-03-06<br><span style="font-size:10px;color:#9ca3af;">예정 (오늘)</span></td>
+                <td>컴프레서 #3</td>
+                <td>A동 2라인</td>
+                <td><span class="badge badge-red">베어링 교체</span></td>
+                <td>—</td>
+                <td>SKF 6206-2RS</td>
+                <td>2026-09-06</td>
+                <td><button class="btn btn-primary btn-sm">기록 입력</button></td>
+              </tr>
+              <tr>
+                <td style="font-weight:500;">2026-03-05</td>
+                <td>컴프레서 #1</td>
+                <td>A동 1라인</td>
+                <td><span class="badge badge-blue">베어링 교체</span></td>
+                <td>김엔지니어</td>
+                <td>SKF 6205-2RS × 2</td>
+                <td>2026-09-05</td>
+                <td>
+                  <button class="btn btn-outline btn-sm">상세</button>
+                </td>
+              </tr>
+              <tr>
+                <td style="font-weight:500;">2026-02-20</td>
+                <td>펌프 #2</td>
+                <td>B동 2라인</td>
+                <td><span class="badge badge-gray">윤활 보충</span></td>
+                <td>이담당자</td>
+                <td>Mobil XHP 220</td>
+                <td>2026-05-20</td>
+                <td><button class="btn btn-outline btn-sm">상세</button></td>
+              </tr>
+              <tr>
+                <td style="font-weight:500;">2026-02-10</td>
+                <td>컴프레서 #3</td>
+                <td>A동 2라인</td>
+                <td><span class="badge badge-gray">정기 점검</span></td>
+                <td>김엔지니어</td>
+                <td>—</td>
+                <td>2026-08-10</td>
+                <td><button class="btn btn-outline btn-sm">상세</button></td>
+              </tr>
+              <tr>
+                <td style="font-weight:500;">2026-01-15</td>
+                <td>컴프레서 #2</td>
+                <td>A동 1라인</td>
+                <td><span class="badge badge-blue">오정렬 수정</span></td>
+                <td>이담당자</td>
+                <td>—</td>
+                <td>2026-07-15</td>
+                <td><button class="btn btn-outline btn-sm">상세</button></td>
+              </tr>
+              <tr>
+                <td style="font-weight:500;">2025-12-10</td>
+                <td>컴프레서 #3</td>
+                <td>A동 2라인</td>
+                <td><span class="badge badge-gray">윤활 보충</span></td>
+                <td>김엔지니어</td>
+                <td>Mobil XHP 220</td>
+                <td>2026-03-10 <span style="color:#dc2626;font-size:10px;">⚠ 지연</span></td>
+                <td><button class="btn btn-outline btn-sm">상세</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:16px;">
+          <button class="btn btn-outline btn-sm">← 이전</button>
+          <button class="btn btn-primary btn-sm">1</button>
+          <button class="btn btn-outline btn-sm">2</button>
+          <button class="btn btn-outline btn-sm">다음 →</button>
+        </div>
+      </div>
+
+      <!-- Upcoming Maintenance -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-header">다가오는 정비 예정 (30일 이내)</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:12px;">
+            <div style="font-size:10px;color:#92400e;font-weight:600;margin-bottom:4px;">D-0 (오늘)</div>
+            <div style="font-size:13px;font-weight:600;">컴프레서 #3</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">베어링 교체 (AI 권고)</div>
+          </div>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;">
+            <div style="font-size:10px;color:#6b7280;font-weight:600;margin-bottom:4px;">D-4 (03-10)</div>
+            <div style="font-size:13px;font-weight:600;">컴프레서 #3</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">윤활 보충 (지연)</div>
+          </div>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;">
+            <div style="font-size:10px;color:#6b7280;font-weight:600;margin-bottom:4px;">D-14 (03-20)</div>
+            <div style="font-size:13px;font-weight:600;">펌프 #1</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">정기 점검</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

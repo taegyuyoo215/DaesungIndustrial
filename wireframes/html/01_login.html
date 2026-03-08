@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>MOTOR-IQ — 로그인</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #1e2330 0%, #2d3a5a 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-container {
+  background: #fff;
+  border-radius: 12px;
+  padding: 40px 44px;
+  width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.logo {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.logo h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1e2330;
+  letter-spacing: 1px;
+}
+.logo h1 span { color: #4f8ef7; }
+.logo p {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111;
+  outline: none;
+  background: #f9fafb;
+  transition: border-color 0.2s;
+}
+.form-input:focus { border-color: #4f8ef7; background: #fff; }
+.form-input.active { border-color: #4f8ef7; background: #fff; }
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+}
+.checkbox-label input[type=checkbox] { accent-color: #4f8ef7; }
+.forgot-link { font-size: 12px; color: #4f8ef7; text-decoration: none; }
+.btn-login {
+  width: 100%;
+  padding: 12px;
+  background: #4f8ef7;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background 0.2s;
+}
+.btn-login:hover { background: #3b7de8; }
+.divider {
+  text-align: center;
+  margin: 20px 0;
+  font-size: 11px;
+  color: #d1d5db;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+.footer-text {
+  text-align: center;
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 24px;
+}
+.error-msg {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 14px;
+  display: none;
+}
+</style>
+</head>
+<body>
+<div class="login-container">
+  <div class="logo">
+    <h1>MOTOR<span>-IQ</span></h1>
+    <p>QM30VT3 기반 모터 예지보전 솔루션</p>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">아이디 (이메일)</label>
+    <input type="email" class="form-input active" value="kim@company.com" placeholder="이메일 주소 입력">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">비밀번호</label>
+    <input type="password" class="form-input" value="••••••••" placeholder="비밀번호 입력">
+  </div>
+
+  <div class="form-options">
+    <label class="checkbox-label">
+      <input type="checkbox"> 로그인 상태 유지
+    </label>
+    <a href="#" class="forgot-link">비밀번호 찾기</a>
+  </div>
+
+  <button class="btn-login">로그인</button>
+
+  <div class="footer-text">
+    FA-IT 통합솔루션팀 © 2026 · v1.0.0
+  </div>
+</div>
+</body>
+</html>

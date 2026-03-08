@@ -1,10 +1,8 @@
 -- ============================================================
--- MOTOR-IQ  TimescaleDB 초기화 스크립트
--- PostgreSQL 16 + TimescaleDB
+-- MOTOR-IQ  데이터베이스 초기화 스크립트
+-- PostgreSQL 16 (TimescaleDB 없이 표준 PostgreSQL 사용)
+-- 소규모 환경 (센서 10대 이하, 1분 주기) 기준
 -- ============================================================
-
--- TimescaleDB 확장 활성화
-CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 -- ─────────────────────────────────────────────
 -- 1. 공장(사이트) 테이블
@@ -145,17 +143,11 @@ CREATE TABLE measurements (
     mag_hf_accel    NUMERIC(8,4)
 );
 
--- Hypertable로 변환 (7일 청크, 시계열 최적화)
-SELECT create_hypertable('measurements', 'time', chunk_time_interval => INTERVAL '7 days');
-
--- 조회 성능을 위한 인덱스
+-- 조회 성능을 위한 인덱스 (sensor_id + time 복합 인덱스)
 CREATE INDEX ON measurements (sensor_id, time DESC);
 
--- 압축 정책: 30일 이상 된 청크 자동 압축 (저장 공간 ~90% 절감)
-SELECT add_compression_policy('measurements', INTERVAL '30 days');
-
--- 데이터 보존 정책: 2년 이상 된 데이터 자동 삭제 (필요 시 활성화)
--- SELECT add_retention_policy('measurements', INTERVAL '2 years');
+-- 최신 측정값 조회 최적화
+CREATE INDEX ON measurements (time DESC);
 
 -- ─────────────────────────────────────────────
 -- 6. 임계값 테이블
@@ -169,7 +161,9 @@ CREATE TABLE thresholds (
     alarm_value NUMERIC(10,4) NOT NULL,
     unit        TEXT,
     created_by  INTEGER     REFERENCES users(id),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- UPSERT를 위한 unique 제약 (motor_id가 NULL인 경우 포함)
+    UNIQUE NULLS NOT DISTINCT (motor_id, metric)
 );
 
 -- ISO 10816 기본 임계값 (motor_id = NULL → 전역 기본값)
@@ -253,7 +247,7 @@ SELECT
     m.id            AS motor_id,
     m.name          AS motor_name,
     m.location,
-    s.site_id,
+    m.site_id,
     si.name         AS site_name,
     sens.id         AS sensor_id,
     sens.modbus_addr,
@@ -269,7 +263,6 @@ SELECT
 FROM motors m
 JOIN sites si ON si.id = m.site_id
 LEFT JOIN sensors sens ON sens.motor_id = m.id AND sens.status = 'active'
-LEFT JOIN sites s ON s.id = m.site_id
 LEFT JOIN LATERAL (
     SELECT * FROM measurements
     WHERE sensor_id = sens.id
@@ -278,9 +271,10 @@ LEFT JOIN LATERAL (
 ) last_m ON TRUE;
 
 -- 1시간 평균 집계 뷰 (대시보드 트렌드 차트용)
+-- time_bucket (TimescaleDB 전용) → date_trunc (표준 PostgreSQL) 로 대체
 CREATE VIEW v_hourly_avg AS
 SELECT
-    time_bucket('1 hour', time) AS bucket,
+    date_trunc('hour', time) AS bucket,
     sensor_id,
     AVG(vel_x_rms)      AS vel_x_avg,
     AVG(vel_y_rms)      AS vel_y_avg,
@@ -288,7 +282,7 @@ SELECT
     MAX(kurtosis_x)     AS kurtosis_x_max,
     AVG(temperature_c)  AS temp_avg
 FROM measurements
-GROUP BY bucket, sensor_id;
+GROUP BY date_trunc('hour', time), sensor_id;
 
 -- ─────────────────────────────────────────────
 -- 완료 메시지
@@ -299,7 +293,6 @@ BEGIN
     RAISE NOTICE 'MOTOR-IQ DB 초기화 완료!';
     RAISE NOTICE '테이블: sites, users, motors, sensors, measurements';
     RAISE NOTICE '        thresholds, diagnosis_results, alarms, maintenance_logs';
-    RAISE NOTICE 'Hypertable: measurements (7일 청크)';
-    RAISE NOTICE '압축 정책: 30일 이후 자동 압축';
+    RAISE NOTICE '표준 PostgreSQL 16 (TimescaleDB 없음)';
     RAISE NOTICE '=====================================================';
 END $$;

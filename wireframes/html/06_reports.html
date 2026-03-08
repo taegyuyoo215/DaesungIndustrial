@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>MOTOR-IQ — 보고서</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.report-card {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.report-card:hover { border-color: #4f8ef7; box-shadow: 0 4px 12px rgba(79,142,247,0.12); }
+.report-card.selected { border-color: #4f8ef7; background: #eff6ff; }
+.report-icon { font-size: 28px; margin-bottom: 10px; }
+.report-title { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 4px; }
+.report-desc { font-size: 11px; color: #6b7280; line-height: 1.5; }
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.settings-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #374151;
+}
+.checkbox-row input[type=checkbox] { accent-color: #4f8ef7; }
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #374151;
+}
+.radio-row input[type=radio] { accent-color: #4f8ef7; }
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.date-shortcut {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.shortcut-btn {
+  padding: 3px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #fff;
+  cursor: pointer;
+  color: #374151;
+}
+.shortcut-btn:hover { background: #f9fafb; }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">MOTOR<span>-IQ</span></div>
+    <div class="sidebar-subtitle">QM30VT3 예지보전 솔루션</div>
+    <nav class="sidebar-menu">
+      <div class="menu-item"><span class="icon">⬛</span> 대시보드</div>
+      <div class="menu-item"><span class="icon">🔔</span> 알람 이력 <span class="menu-badge">3</span></div>
+      <div class="menu-item"><span class="icon">🔧</span> 정비 이력</div>
+      <div class="menu-item active"><span class="icon">📊</span> 보고서</div>
+      <div class="menu-item"><span class="icon">⚙️</span> 설정</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-name">김엔지니어</div>
+      <div class="user-role">보전 엔지니어</div>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <div class="topbar">
+      <span class="topbar-title">보고서</span>
+      <div class="topbar-actions">
+        <button class="bell-btn">🔔<span class="bell-badge">3</span></button>
+        <span class="user-chip">김엔지니어 ▾</span>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Report Type Selection -->
+      <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:12px;">보고서 유형 선택</div>
+      <div class="report-grid">
+        <div class="report-card">
+          <div class="report-icon">📄</div>
+          <div class="report-title">일일 현황 요약</div>
+          <div class="report-desc">오늘의 모터 상태 요약, 알람 발생 목록, 이상 현황</div>
+        </div>
+        <div class="report-card selected">
+          <div class="report-icon">📈</div>
+          <div class="report-title">주간 트렌드 리포트</div>
+          <div class="report-desc">7일간 진동·온도 트렌드 변화 및 이상 이력 분석</div>
+        </div>
+        <div class="report-card">
+          <div class="report-icon">🔍</div>
+          <div class="report-title">고장 분석 보고서</div>
+          <div class="report-desc">특정 고장 이벤트 상세 분석 — FFT, 트렌드, 근거 포함</div>
+        </div>
+        <div class="report-card">
+          <div class="report-icon">🔧</div>
+          <div class="report-title">정비 이력 보고서</div>
+          <div class="report-desc">기간 내 정비 실적 및 향후 예정 정비 일정 정리</div>
+        </div>
+        <div class="report-card">
+          <div class="report-icon">📊</div>
+          <div class="report-title">월간 예지보전 종합</div>
+          <div class="report-desc">고장 통계 + 정비 이력 + KPI 대비 현황 + 권장사항</div>
+        </div>
+      </div>
+
+      <!-- Report Settings -->
+      <div class="settings-panel">
+        <div style="font-size:13px;font-weight:700;color:#111;margin-bottom:16px;">📈 주간 트렌드 리포트 설정</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div>
+            <div class="form-group">
+              <label class="form-label">대상 모터</label>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label class="checkbox-row"><input type="radio" name="motor" checked> 전체 모터</label>
+                <label class="checkbox-row"><input type="radio" name="motor"> 선택</label>
+                <div style="padding-left:20px;display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                  <label class="checkbox-row"><input type="checkbox" checked> 컴프레서 #1</label>
+                  <label class="checkbox-row"><input type="checkbox" checked> 컴프레서 #2</label>
+                  <label class="checkbox-row"><input type="checkbox" checked> 컴프레서 #3</label>
+                  <label class="checkbox-row"><input type="checkbox"> 펌프 #1</label>
+                  <label class="checkbox-row"><input type="checkbox"> 펌프 #2</label>
+                  <label class="checkbox-row"><input type="checkbox"> 환풍기 #1</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label class="form-label">기간</label>
+              <div class="date-range">
+                <input type="text" class="form-input" value="2026-02-27" style="width:130px;">
+                <span style="color:#9ca3af;">~</span>
+                <input type="text" class="form-input" value="2026-03-06" style="width:130px;">
+              </div>
+              <div class="date-shortcut">
+                <button class="shortcut-btn">이번 주</button>
+                <button class="shortcut-btn">지난 주</button>
+                <button class="shortcut-btn">이번 달</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">포함 내용</label>
+              <label class="checkbox-row"><input type="checkbox" checked> 진동 트렌드 차트</label>
+              <label class="checkbox-row"><input type="checkbox" checked> 온도 트렌드 차트</label>
+              <label class="checkbox-row"><input type="checkbox" checked> 알람 발생 이력</label>
+              <label class="checkbox-row"><input type="checkbox" checked> 고장 분류 요약</label>
+              <label class="checkbox-row"><input type="checkbox"> FFT 스펙트럼 (파일 크기 증가)</label>
+              <label class="checkbox-row"><input type="checkbox" checked> 정비 이력</label>
+            </div>
+            <div class="form-group">
+              <label class="form-label">출력 형식</label>
+              <div style="display:flex;gap:16px;">
+                <label class="radio-row"><input type="radio" name="fmt" checked> PDF</label>
+                <label class="radio-row"><input type="radio" name="fmt"> Excel (.xlsx)</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+          <button class="btn btn-outline">취소</button>
+          <button class="btn btn-primary">📄 보고서 생성</button>
+        </div>
+      </div>
+
+      <!-- Recent Reports -->
+      <div class="card">
+        <div class="section-header">최근 생성 보고서</div>
+        <table>
+          <thead>
+            <tr>
+              <th>생성일</th>
+              <th>유형</th>
+              <th>기간</th>
+              <th>대상</th>
+              <th>형식</th>
+              <th>크기</th>
+              <th>다운로드</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>2026-03-05</td>
+              <td>주간 트렌드 리포트</td>
+              <td>02-27 ~ 03-05</td>
+              <td>전체 (6대)</td>
+              <td><span class="badge badge-blue">PDF</span></td>
+              <td>2.4 MB</td>
+              <td><button class="btn btn-outline btn-sm">⬇ 다운로드</button></td>
+            </tr>
+            <tr>
+              <td>2026-03-01</td>
+              <td>월간 예지보전 종합</td>
+              <td>2026년 2월</td>
+              <td>전체 (6대)</td>
+              <td><span class="badge badge-blue">PDF</span></td>
+              <td>5.1 MB</td>
+              <td><button class="btn btn-outline btn-sm">⬇ 다운로드</button></td>
+            </tr>
+            <tr>
+              <td>2026-02-25</td>
+              <td>고장 분석 보고서</td>
+              <td>2026-02-24</td>
+              <td>컴프레서 #1</td>
+              <td><span class="badge badge-green">Excel</span></td>
+              <td>0.8 MB</td>
+              <td><button class="btn btn-outline btn-sm">⬇ 다운로드</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

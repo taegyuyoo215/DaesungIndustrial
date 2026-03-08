@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import MobileNav from "@/components/MobileNav";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
@@ -14,9 +15,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className={`${geist.variable} font-sans antialiased bg-slate-50 text-slate-900`}>
+        {/* 모바일 전용 상단 네비게이션 (md 미만에서만 표시) */}
+        <MobileNav />
+
         <div className="flex min-h-screen">
           <Sidebar />
-          <main className="flex-1 overflow-auto">
+          {/* pt: 모바일 MobileNav 높이(약 84px) 만큼 여백, md 이상에서는 0 */}
+          <main className="flex-1 overflow-auto min-w-0 pt-[84px] md:pt-0">
             {children}
           </main>
         </div>
