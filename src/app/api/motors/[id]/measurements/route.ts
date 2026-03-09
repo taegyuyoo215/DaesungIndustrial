@@ -29,19 +29,30 @@ export async function GET(
 
     const sensorId = sensor.id
 
-    if (bucket === 'hour') {
-      // 시간별 평균 (트렌드 차트용)
+    if (bucket === 'hour' || bucket === 'minute') {
+      // 시간별 / 분별 평균 (트렌드 차트용)
+      // anchor=latest: DB 최신 측정 시각 기준으로 N시간 창을 잡음
+      // → 시드 데이터처럼 타임스탬프가 고정된 경우에도 차트가 표시됨
+      // → 실제 센서가 연결되면 MAX(time) ≈ NOW() 이므로 실시간과 동일
+      const anchor = sp.get('anchor') ?? 'now' // now | latest
+      const trunc  = bucket === 'minute' ? 'minute' : 'hour'
+
+      const anchorExpr = anchor === 'latest'
+        ? `(SELECT COALESCE(MAX(time), NOW()) FROM measurements WHERE sensor_id = $1)`
+        : `NOW()`
+
       const rows = await query(`
         SELECT
-          date_trunc('hour', time) AS bucket,
+          date_trunc('${trunc}', time) AS bucket,
           AVG(vel_y_rms)      AS vel_y_avg,
           AVG(hf_accel_y_rms) AS hf_accel_y_avg,
           AVG(kurtosis_y)     AS kurtosis_y_avg,
           AVG(temperature_c)  AS temp_avg
         FROM measurements
         WHERE sensor_id = $1
-          AND time >= NOW() - ($2 || ' hours')::INTERVAL
-        GROUP BY date_trunc('hour', time)
+          AND time >= ${anchorExpr} - ($2 || ' hours')::INTERVAL
+          AND time <= ${anchorExpr}
+        GROUP BY date_trunc('${trunc}', time)
         ORDER BY bucket ASC
       `, [sensorId, hours])
       return NextResponse.json({ data: rows })

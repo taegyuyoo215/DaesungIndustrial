@@ -1,47 +1,34 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
+import TrendChart from '@/components/charts/TrendChart'
+import type { TrendPoint } from '@/components/charts/TrendChart'
 import StatusBadge from '@/components/StatusBadge'
-import Sparkline from '@/components/Sparkline'
 import { fetcher } from '@/lib/fetcher'
-import type { MotorStatus, ApiResponse } from '@/types'
+import type {
+  MotorStatus, Motor, Measurement, DiagnosisResult,
+  Alarm, MaintenanceLog, ApiResponse,
+} from '@/types'
 
 // ── 타입 ──────────────────────────────────────────────────
 
-interface MotorDiagnosis {
-  id: number
-  motor_id: number
-  motor_name: string
-  location: string | null
-  diagnosed_at: string
-  fault_type: string | null
-  confidence: number | null
-  severity: string | null
-  rul_days: number | null
+interface MotorDetailData {
+  motor: Motor & { site_name: string }
+  sensor: { id: number; serial_number: string; modbus_addr: number } | null
+  latestMeasurement: Measurement | null
+  latestDiagnosis: DiagnosisResult | null
+  activeAlarms: Alarm[]
+  maintenanceLogs: MaintenanceLog[]
+  thresholds: { id: number; metric: string; warn_value: number; alarm_value: number }[]
 }
 
-interface AiReport {
-  health_score: number
-  summary: string
-  critical: {
-    motor_name: string
-    location: string | null
-    fault_type: string | null
-    confidence: number | null
-    rul_days: number | null
-    alarms: number
-  }[]
-  warning: {
-    motor_name: string
-    location: string | null
-    fault_type: string | null
-    confidence: number | null
-    rul_days: number | null
-  }[]
-  total_motors: number
-  active_alarms: number
-  generated_at: string
+interface TrendRow {
+  bucket: string
+  vel_y_avg: string | null
+  kurtosis_y_avg: string | null
+  temp_avg: string | null
 }
 
 // ── 상수 ──────────────────────────────────────────────────
@@ -55,7 +42,24 @@ const FAULT_LABELS: Record<string, string> = {
   overheat:      '과열',
 }
 
-// ISO Class II 기준
+const FAULT_DESC: Record<string, string> = {
+  bearing_outer: '베어링 외륜 손상으로 인한 주기적 충격 신호가 감지됩니다. 방치 시 베어링 전체 파손으로 이어질 수 있습니다.',
+  bearing_inner: '베어링 내륜 결함으로 인한 비정상 진동 패턴이 감지됩니다. 스핀들 손상으로 확대될 수 있습니다.',
+  imbalance:     '회전체 불평형으로 인해 1× 회전 주파수 성분이 과도하게 검출됩니다. 지속 시 베어링 조기 마모를 유발합니다.',
+  misalignment:  '축 오정렬로 인해 2× 및 고조파 성분이 증가하고 있습니다. 커플링과 베어링에 과부하가 걸립니다.',
+  looseness:     '구조적 풀림으로 인한 다수의 고조파 성분이 감지됩니다. 2차 진동으로 인한 부품 파손 위험이 있습니다.',
+  overheat:      '운전 온도가 허용 범위를 초과하였습니다. 지속 시 권선 절연 파괴 및 모터 소손 위험이 있습니다.',
+}
+
+const FAULT_ACTIONS: Record<string, string[]> = {
+  bearing_outer: ['즉시 베어링 교체 일정 수립', '모니터링 주기 단축 (실시간 감시)', '교체 후 진동 재측정 확인'],
+  bearing_inner: ['베어링 상태 정밀 점검', '윤활 상태 확인 및 보충', '교체 준비 및 스케줄링'],
+  imbalance:     ['회전체 밸런싱 작업 실시', '체결 볼트 조임 상태 확인', '밸런싱 후 진동 재측정'],
+  misalignment:  ['레이저 얼라이먼트 측정', '커플링 및 베어링 하중 분포 점검', '정렬 조정 후 진동 재측정'],
+  looseness:     ['체결부 전수 점검 및 조임', '기초 볼트 및 방진 패드 상태 점검', '재체결 후 진동 재측정'],
+  overheat:      ['냉각 시스템 및 통풍 점검', '부하 감소 또는 운전 중단 검토', '권선 절연 저항 측정'],
+}
+
 const VEL_WARN  = 2.8
 const VEL_CRIT  = 7.1
 const TEMP_WARN = 60
@@ -63,425 +67,642 @@ const TEMP_CRIT = 70
 const KURT_WARN = 5.0
 const KURT_CRIT = 8.0
 
-// ── AI 진단 종합 리포트 패널 ───────────────────────────────
+// ── 모터 선택 칩 ──────────────────────────────────────────
 
-function AiReportPanel() {
-  const { data, isLoading } =
-    useSWR<AiReport>('/api/ai-report', fetcher, { refreshInterval: 300_000 })
+const STATUS_DOT: Record<string, string> = {
+  normal:   'bg-emerald-500',
+  warning:  'bg-amber-500',
+  critical: 'bg-red-500',
+}
 
-  if (isLoading) {
-    return (
-      <div className="rounded-xl border border-slate-700 bg-slate-900 mb-4 sm:mb-6 px-4 sm:px-5 py-4">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
-          <span className="text-sm text-slate-400">AI 진단 리포트 로딩 중...</span>
-        </div>
-      </div>
-    )
-  }
+function MotorChip({
+  motor,
+  selected,
+  onClick,
+}: {
+  motor: MotorStatus
+  selected: boolean
+  onClick: () => void
+}) {
+  const isOffline = !motor.last_measured_at
+  const severity  = isOffline ? 'normal' : motor.severity
 
-  if (!data) return null
-
-  const hasUrgent  = data.critical.length > 0
-  const hasWarning = data.warning.length > 0
-
-  // 문장형 요약 생성
-  const sentenceParts: string[] = []
-  if (data.critical.length > 0)
-    sentenceParts.push(`${data.critical.length}대 설비에서 즉시 조치가 필요한 결함이 감지되었습니다`)
-  if (data.warning.length > 0)
-    sentenceParts.push(`${data.warning.length}대 설비는 주의 관찰이 필요합니다`)
-  if (data.active_alarms > 0)
-    sentenceParts.push(`활성 알람 ${data.active_alarms}건이 발생 중입니다`)
-  const sentence = sentenceParts.length > 0
-    ? sentenceParts.join('. ') + `. 전체 설비 건강도는 ${data.health_score}점입니다.`
-    : `전체 ${data.total_motors}대 설비가 모두 정상 운전 중입니다.`
-
-  const scoreColor =
-    data.health_score >= 80 ? 'text-emerald-400' :
-    data.health_score >= 50 ? 'text-amber-400'   : 'text-red-400'
+  const chipCls = selected
+    ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+    : severity === 'critical'
+      ? 'bg-red-50 border-red-300 text-red-800 hover:bg-red-100'
+      : severity === 'warning'
+        ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-900 text-slate-100 mb-2 sm:mb-3 shrink-0 overflow-hidden">
-      {/* 헤더 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-2 border-b border-slate-700">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="text-sm font-bold tracking-tight whitespace-nowrap">✦ AI 진단 종합 리포트</span>
-          <span className="text-slate-600 hidden sm:inline">·</span>
-          <span className="hidden sm:inline text-xs text-slate-300 truncate">{data.summary}</span>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-xs text-slate-500">건강도</span>
-          <span className={`text-xl font-black ${scoreColor}`}>{data.health_score}</span>
-          <span className="text-xs text-slate-500">/ 100</span>
-        </div>
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium whitespace-nowrap transition-all shrink-0 ${chipCls}`}
+    >
+      <span className={`w-2 h-2 rounded-full shrink-0 ${selected ? 'bg-white/80' : STATUS_DOT[severity]}`} />
+      {motor.name}
+    </button>
+  )
+}
+
+// ── 지표 카드 ─────────────────────────────────────────────
+
+function MetricCard({
+  label, value, unit, delta, warn, crit,
+  format = String, offline = false,
+}: {
+  label:    string
+  value:    number
+  unit:     string
+  delta?:   number | null
+  warn:     number
+  crit:     number
+  format?:  (v: number) => string
+  offline?: boolean
+}) {
+  const isCrit = !offline && value >= crit
+  const isWarn = !offline && !isCrit && value >= warn
+
+  const bg = offline ? 'bg-slate-50 border-slate-200'
+           : isCrit  ? 'bg-red-50 border-red-200'
+           : isWarn  ? 'bg-amber-50 border-amber-200'
+           : 'bg-white border-slate-200'
+
+  const valCl = offline ? 'text-slate-300'
+              : isCrit  ? 'text-red-600'
+              : isWarn  ? 'text-amber-600'
+              : 'text-slate-800'
+
+  return (
+    <div className={`rounded-xl border p-4 ${bg}`}>
+      <p className="text-xs text-slate-500 mb-2">{label}</p>
+      <div className="flex items-end gap-1.5">
+        <span className={`text-3xl font-black tabular-nums leading-none ${valCl}`}>
+          {offline ? '—' : format(value)}
+        </span>
+        {unit && <span className="text-sm text-slate-400 mb-0.5">{unit}</span>}
       </div>
-
-      {/* 본문 */}
-      <div className="px-4 sm:px-5 py-2.5 space-y-2">
-        {/* 문장형 요약 */}
-        <p className="text-sm text-slate-300 leading-relaxed">{sentence}</p>
-
-        {/* 즉시 조치 */}
-        {hasUrgent && (
-          <div>
-            <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2">🔴 즉시 조치 필요</p>
-            <div className="space-y-1.5">
-              {data.critical.map((item, i) => (
-                <div key={i} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2 bg-red-950/50 border border-red-800/50 rounded-lg px-3 py-2">
-                  <div className="min-w-0">
-                    <span className="text-sm font-semibold text-white">{item.motor_name}</span>
-                    {item.location && (
-                      <span className="text-xs text-slate-400 ml-2">{item.location}</span>
-                    )}
-                    {item.fault_type && (
-                      <span className="ml-2 text-xs text-red-300">
-                        {FAULT_LABELS[item.fault_type] ?? item.fault_type}
-                        {item.confidence != null && ` (${item.confidence}%)`}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 sm:shrink-0">
-                    {item.alarms > 0 && (
-                      <span className="text-[10px] bg-red-700/60 text-red-200 px-1.5 py-0.5 rounded">알람 {item.alarms}건</span>
-                    )}
-                    {item.rul_days != null && (
-                      <span className="text-xs font-bold text-red-300">잔여 {item.rul_days}일</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 주의 관찰 */}
-        {hasWarning && (
-          <div>
-            <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">🟡 주의 관찰</p>
-            <div className="space-y-1.5">
-              {data.warning.map((item, i) => (
-                <div key={i} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2 bg-amber-950/30 border border-amber-800/40 rounded-lg px-3 py-2">
-                  <div className="min-w-0">
-                    <span className="text-sm font-semibold text-white">{item.motor_name}</span>
-                    {item.location && (
-                      <span className="text-xs text-slate-400 ml-2">{item.location}</span>
-                    )}
-                    {item.fault_type && (
-                      <span className="ml-2 text-xs text-amber-300">
-                        {FAULT_LABELS[item.fault_type] ?? item.fault_type}
-                        {item.confidence != null && ` (${item.confidence}%)`}
-                      </span>
-                    )}
-                  </div>
-                  {item.rul_days != null && (
-                    <span className="text-xs text-amber-300 sm:shrink-0">잔여 {item.rul_days}일</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 모두 정상 */}
-        {!hasUrgent && !hasWarning && (
-          <div className="flex items-center gap-2 text-emerald-400 text-sm">
-            <span>🟢</span>
-            <span>전체 {data.total_motors}대 설비 정상 운전 중</span>
-          </div>
-        )}
-      </div>
+      {!offline && delta != null && <DeltaTag value={delta} />}
     </div>
   )
 }
 
-// ── 유틸 ──────────────────────────────────────────────────
-
-function metricColor(value: number, warn: number, crit: number): string {
-  if (value >= crit) return 'text-red-600'
-  if (value >= warn) return 'text-amber-600'
-  return 'text-slate-700'
-}
-function metricBg(value: number, warn: number, crit: number): string {
-  if (value >= crit) return 'bg-red-50'
-  if (value >= warn) return 'bg-amber-50'
-  return 'bg-slate-50'
-}
-
-// ── 변화량 표시 ───────────────────────────────────────────
-
-function Delta({ value }: { value: number | null | undefined }) {
-  if (value == null || Math.abs(value) < 0.05) {
-    return <span className="text-[10px] text-slate-300 mt-0.5 block">—</span>
-  }
+function DeltaTag({ value }: { value: number }) {
+  if (Math.abs(value) < 0.01)
+    return <span className="text-[10px] text-slate-400 mt-1.5 block">— 변화 없음</span>
   const isUp = value > 0
   const abs  = Math.abs(value)
-  const fmt  = abs < 0.1 ? abs.toFixed(2) : abs < 10 ? abs.toFixed(1) : Math.round(abs).toString()
+  const fmt  = abs < 1 ? abs.toFixed(2) : abs.toFixed(1)
   return (
-    <span className={`text-[10px] font-medium mt-0.5 block ${isUp ? 'text-red-500' : 'text-emerald-500'}`}>
-      {isUp ? '▲' : '▼'} {fmt}
+    <span className={`text-[10px] font-medium mt-1.5 block ${isUp ? 'text-red-500' : 'text-emerald-500'}`}>
+      {isUp ? '▲' : '▼'} {fmt} (24h 전 대비)
     </span>
   )
 }
 
-// ── 모터 카드 ─────────────────────────────────────────────
+// ── AI 진단 카드 (상세) ────────────────────────────────────
 
-function MotorCard({
-  motor,
-  diagnosis,
-  sparkline,
-}: {
-  motor: MotorStatus
-  diagnosis?: MotorDiagnosis
-  sparkline?: number[]
-}) {
-  const velY      = Number(motor.vel_y_rms    ?? 0)
-  const temp      = Number(motor.temperature_c ?? 0)
-  const kurtosis  = Number(motor.kurtosis_x    ?? 0)
-  const isOffline = !motor.last_measured_at
-
-  const accentBar: Record<string, string> = {
-    normal:   'bg-emerald-400',
-    warning:  'bg-amber-400',
-    critical: 'bg-red-500',
+function DiagnosisCard({ diagnosis }: { diagnosis: DiagnosisResult | null }) {
+  if (!diagnosis) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-4 h-full">
+        <p className="text-sm font-semibold text-slate-700 mb-3">✦ AI 진단 결과</p>
+        <p className="text-sm text-slate-400">진단 데이터 없음</p>
+      </div>
+    )
   }
 
-  const showDiagBadge =
-    diagnosis &&
-    diagnosis.fault_type &&
-    diagnosis.fault_type !== 'normal' &&
-    diagnosis.severity !== 'normal'
+  const isNormal = diagnosis.fault_type === 'normal' || diagnosis.severity === 'normal'
+  const isCrit   = diagnosis.severity === 'critical'
+  const conf     = diagnosis.confidence != null ? Math.round(Number(diagnosis.confidence)) : null
+  const rul      = diagnosis.rul_days
+  const evidence = diagnosis.evidence
+
+  const rulColor  = rul == null ? 'text-slate-300'
+                  : rul <= 7   ? 'text-red-600'
+                  : rul <= 30  ? 'text-amber-600'
+                  : 'text-emerald-600'
+  const rulBarCl  = rul == null ? 'bg-slate-200'
+                  : rul <= 7   ? 'bg-red-500'
+                  : rul <= 30  ? 'bg-amber-500'
+                  : 'bg-emerald-500'
+  const rulMsg    = rul == null ? ''
+                  : rul <= 7   ? '즉시 조치 필요'
+                  : rul <= 30  ? '단기 정비 계획 수립 필요'
+                  : '정상 범위 내'
+  const rulPct    = rul != null ? Math.min(100, Math.round((rul / 90) * 100)) : 0
+
+  const desc    = diagnosis.fault_type ? FAULT_DESC[diagnosis.fault_type]    : undefined
+  const actions = diagnosis.fault_type ? FAULT_ACTIONS[diagnosis.fault_type] : undefined
 
   return (
-    <Link href={`/motors/${motor.id}`} className="block h-full">
-      <div className="bg-white rounded-xl border border-slate-200 hover:shadow-md transition-shadow h-full flex overflow-hidden">
-        {/* 좌측 상태 바 */}
-        <div className={`w-1 shrink-0 ${accentBar[isOffline ? 'normal' : motor.severity]}`} />
+    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4 h-full">
 
-        <div className="flex-1 p-2.5 sm:p-3 flex flex-col gap-1.5 sm:gap-2 min-w-0">
-          {/* 헤더 */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-800 text-sm truncate">{motor.name}</p>
-              <p className="text-xs text-slate-400 mt-0.5 truncate">{motor.location}</p>
-            </div>
-            <StatusBadge status={isOffline ? 'offline' : motor.severity} />
+      {/* 헤더 */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-slate-700">✦ AI 진단 결과</p>
+        <span className="text-[10px] text-slate-400">
+          {new Date(diagnosis.diagnosed_at).toLocaleString('ko-KR', {
+            month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+          })}
+        </span>
+      </div>
+
+      {/* 진단 결과 */}
+      {isNormal ? (
+        <div className="flex items-center gap-2.5 bg-emerald-50 rounded-lg px-3 py-2.5">
+          <span className="text-xl leading-none">🟢</span>
+          <div>
+            <p className="text-sm font-semibold text-emerald-700">이상 없음 — 정상 상태</p>
+            <p className="text-xs text-emerald-600 mt-0.5">현재 측정값이 모든 임계값 이내입니다.</p>
           </div>
+        </div>
+      ) : (
+        <div className={`rounded-lg px-3 py-2.5 ${isCrit ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <p className="text-base font-bold text-slate-800">
+              {FAULT_LABELS[diagnosis.fault_type ?? ''] ?? diagnosis.fault_type ?? '알 수 없음'}
+            </p>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+              isCrit ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+            }`}>
+              {isCrit ? '경보' : '주의'}
+            </span>
+          </div>
+          {desc && <p className="text-xs text-slate-600 leading-relaxed">{desc}</p>}
+        </div>
+      )}
 
-          {isOffline ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-4 sm:py-6 text-slate-400">
-              <p className="text-2xl">📡</p>
-              <p className="text-xs mt-1">센서 오프라인</p>
+      {/* 신뢰도 */}
+      {conf != null && (
+        <div>
+          <div className="flex justify-between mb-1.5">
+            <span className="text-xs text-slate-500">모델 신뢰도</span>
+            <span className="text-xs font-bold tabular-nums">{conf}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                isCrit ? 'bg-red-500' : isNormal ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}
+              style={{ width: `${conf}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 잔여수명 */}
+      {rul != null && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-slate-500">잔여수명 (RUL)</span>
+            <div className="flex items-baseline gap-1">
+              <span className={`text-xl font-black tabular-nums ${rulColor}`}>{rul}</span>
+              <span className="text-xs text-slate-400">일</span>
             </div>
-          ) : (
-            <>
-              {/* 측정값 3개 */}
-              <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
-                {/* 진동 RMS */}
-                <div className={`rounded-lg p-1.5 sm:p-2 text-center ${metricBg(velY, VEL_WARN, VEL_CRIT)}`}>
-                  <p className="text-[9px] font-semibold text-slate-400 tracking-widest uppercase">RMS</p>
-                  <p className={`text-xs sm:text-sm font-bold leading-tight mt-0.5 ${metricColor(velY, VEL_WARN, VEL_CRIT)}`}>
-                    {velY.toFixed(1)}
-                  </p>
-                  <p className="text-[9px] text-slate-400">mm/s</p>
-                  <Delta value={motor.vel_y_delta} />
-                </div>
+          </div>
+          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${rulBarCl}`}
+              style={{ width: `${rulPct}%` }}
+            />
+          </div>
+          <p className={`text-[11px] font-semibold mt-1.5 ${rulColor}`}>{rulMsg}</p>
+        </div>
+      )}
 
-                {/* Kurtosis */}
-                <div className={`rounded-lg p-1.5 sm:p-2 text-center ${metricBg(kurtosis, KURT_WARN, KURT_CRIT)}`}>
-                  <p className="text-[9px] font-semibold text-slate-400 tracking-widest uppercase">Kurt</p>
-                  <p className={`text-xs sm:text-sm font-bold leading-tight mt-0.5 ${metricColor(kurtosis, KURT_WARN, KURT_CRIT)}`}>
-                    {kurtosis.toFixed(1)}
-                  </p>
-                  <p className="text-[9px] text-slate-400">—</p>
-                  <Delta value={motor.kurtosis_delta} />
+      {/* 진단 근거 (evidence) */}
+      {evidence?.metrics && evidence.metrics.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-600 mb-2">진단 근거</p>
+          <div className="space-y-2">
+            {evidence.metrics.map((m, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <span className={`text-xs ${m.exceeded ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
+                  {m.exceeded ? '⚠ ' : ''}{m.label}
+                </span>
+                <div className="flex items-center gap-1.5 tabular-nums">
+                  <span className={`text-xs font-bold ${m.exceeded ? 'text-red-600' : 'text-slate-700'}`}>
+                    {m.value}
+                  </span>
+                  <span className="text-[10px] text-slate-300">/</span>
+                  <span className="text-[10px] text-slate-400">{m.threshold}</span>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-                {/* 온도 */}
-                <div className={`rounded-lg p-1.5 sm:p-2 text-center ${metricBg(temp, TEMP_WARN, TEMP_CRIT)}`}>
-                  <p className="text-[9px] font-semibold text-slate-400 tracking-widest uppercase">Temp</p>
-                  <p className={`text-xs sm:text-sm font-bold leading-tight mt-0.5 ${metricColor(temp, TEMP_WARN, TEMP_CRIT)}`}>
-                    {Math.round(temp)}
-                  </p>
-                  <p className="text-[9px] text-slate-400">°C</p>
-                  <Delta value={motor.temp_delta} />
+      {/* 권장 조치 */}
+      {!isNormal && actions && (
+        <div>
+          <p className="text-xs font-semibold text-slate-600 mb-2">권장 조치</p>
+          <ol className="space-y-1.5">
+            {actions.map((action, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                <span className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${isCrit ? 'bg-red-500' : 'bg-amber-500'}`}>
+                  {i + 1}
+                </span>
+                {action}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+// ── 활성 알람 카드 ─────────────────────────────────────────
+
+function AlarmsCard({ alarms }: { alarms: Alarm[] }) {
+  const active = alarms.filter(a => a.state !== 'resolved')
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-slate-700">
+          활성 알람
+          {active.length > 0 && (
+            <span className="ml-1.5 text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+              {active.length}
+            </span>
+          )}
+        </p>
+        <Link href="/alarms" className="text-xs text-blue-600 hover:underline">
+          전체 보기 →
+        </Link>
+      </div>
+
+      {active.length === 0 ? (
+        <div className="flex items-center gap-2 text-emerald-600">
+          <span className="text-lg">🟢</span>
+          <span className="text-sm font-medium">활성 알람 없음</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {active.slice(0, 4).map(alarm => (
+            <div
+              key={alarm.id}
+              className={`flex items-start gap-2 p-2.5 rounded-lg ${
+                alarm.severity === 'critical' ? 'bg-red-50' : 'bg-amber-50'
+              }`}
+            >
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-px ${
+                alarm.severity === 'critical' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+              }`}>
+                {alarm.severity === 'critical' ? '경보' : '주의'}
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-700 leading-snug">{alarm.message ?? '알람 발생'}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {new Date(alarm.triggered_at).toLocaleString('ko-KR', {
+                    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 선택된 모터 대시보드 ───────────────────────────────────
+
+function MotorDashboard({
+  selectedStatus,
+  detail,
+  trendData,
+  isLoading,
+}: {
+  selectedStatus: MotorStatus | undefined
+  detail:         MotorDetailData | undefined
+  trendData:      TrendRow[]
+  isLoading:      boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full gap-2 text-slate-400 text-sm">
+        <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+        데이터 불러오는 중...
+      </div>
+    )
+  }
+
+  if (!detail) {
+    return (
+      <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+        모터 데이터를 불러올 수 없습니다
+      </div>
+    )
+  }
+
+  const { motor, latestDiagnosis, activeAlarms, latestMeasurement } = detail
+  const m         = selectedStatus
+  const isOffline = !latestMeasurement
+
+  // 지표 카드: latestMeasurement 직접 사용 (motors list 캐시가 아닌 실시간 최신값)
+  const vel  = Number(latestMeasurement?.vel_y_rms     ?? 0)
+  const temp = Number(latestMeasurement?.temperature_c ?? 0)
+  const kurt = Number(latestMeasurement?.kurtosis_y    ?? 0)  // Y축 — 트렌드 차트와 동일
+
+  // 시드 데이터의 고정 타임스탬프를 현재 시각 기준으로 시프트
+  // 실제 센서 연결 시 offset ≈ 0 이므로 동작에 영향 없음
+  const timeOffset = trendData.length > 0
+    ? Date.now() - new Date(trendData[trendData.length - 1].bucket).getTime()
+    : 0
+  const shiftTime = (bucket: string) =>
+    new Date(new Date(bucket).getTime() + timeOffset).toISOString()
+
+  const velTrend: TrendPoint[]  = trendData.map(r => ({
+    time:  shiftTime(r.bucket),
+    value: r.vel_y_avg      != null ? Number(r.vel_y_avg)      : null,
+  }))
+  const tempTrend: TrendPoint[] = trendData.map(r => ({
+    time:  shiftTime(r.bucket),
+    value: r.temp_avg       != null ? Number(r.temp_avg)       : null,
+  }))
+  const kurtTrend: TrendPoint[] = trendData.map(r => ({
+    time:  shiftTime(r.bucket),
+    value: r.kurtosis_y_avg != null ? Number(r.kurtosis_y_avg) : null,
+  }))
+
+  const motorMeta = [
+    motor.location,
+    motor.site_name,
+    motor.rated_power_kw && `${motor.rated_power_kw}kW`,
+    motor.rated_rpm      && `${motor.rated_rpm}RPM`,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <div className="h-full flex flex-col lg:flex-row gap-3 pb-3">
+
+      {/* ── 좌측: 모터 헤더 + 지표 + 차트 + 알람 */}
+      <div className="flex-1 min-w-0 flex flex-col gap-3">
+
+        {/* 모터 헤더 + 활성 알람 통합 카드 */}
+        {(() => {
+          const activeCount = activeAlarms.filter(a => a.state !== 'resolved')
+          return (
+            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+
+              {/* 모터 정보 */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg font-bold text-slate-900">{motor.name}</h2>
+                    <StatusBadge status={isOffline ? 'offline' : (m?.severity ?? 'normal')} />
+                  </div>
+                  {motorMeta && (
+                    <p className="text-sm text-slate-400 mt-0.5">{motorMeta}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 shrink-0">
+                  {latestMeasurement?.time && (
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-400">마지막 측정</p>
+                      <p className="text-xs font-medium text-slate-600">
+                        {new Date(latestMeasurement.time).toLocaleString('ko-KR', {
+                          month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  )}
+                  <Link href={`/motors/${motor.id}`} className="text-xs text-blue-600 hover:underline whitespace-nowrap">
+                    상세 보기 →
+                  </Link>
                 </div>
               </div>
 
-              {/* 24h 스파크라인 */}
-              <div>
-                <p className="text-[9px] text-slate-400 mb-1">24시간 진동 추이 (vel_y RMS)</p>
-                <Sparkline
-                  data={sparkline ?? []}
-                  height={28}
-                  warnValue={VEL_WARN}
-                  critValue={VEL_CRIT}
-                />
-              </div>
+              {/* 구분선 */}
+              <div className="border-t border-slate-100" />
 
               {/* 활성 알람 */}
-              {motor.active_alarms > 0 && (
-                <div className={`px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium ${
-                  motor.severity === 'critical'
-                    ? 'bg-red-50 text-red-700'
-                    : 'bg-yellow-50 text-yellow-700'
-                }`}>
-                  ⚠ 활성 알람 {motor.active_alarms}건
+              {activeCount.length === 0 ? (
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <span>🟢</span>
+                  <span className="text-sm font-medium">활성 알람 없음</span>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {activeCount.slice(0, 4).map(alarm => (
+                    <div
+                      key={alarm.id}
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
+                        alarm.severity === 'critical' ? 'bg-red-50' : 'bg-amber-50'
+                      }`}
+                    >
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        alarm.severity === 'critical' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+                      }`}>
+                        {alarm.severity === 'critical' ? '경보' : '주의'}
+                      </span>
+                      <p className="text-xs text-slate-700 flex-1 truncate">{alarm.message ?? '알람 발생'}</p>
+                      <p className="text-[10px] text-slate-400 shrink-0">
+                        {new Date(alarm.triggered_at).toLocaleString('ko-KR', {
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                  {activeCount.length > 4 && (
+                    <Link href="/alarms" className="block text-center text-[11px] text-blue-600 hover:underline pt-0.5">
+                      +{activeCount.length - 4}건 더 보기 →
+                    </Link>
+                  )}
                 </div>
               )}
 
-              {/* AI 진단 뱃지 */}
-              {showDiagBadge && (
-                <div className={`flex items-center justify-between gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg border text-xs ${
-                  diagnosis!.severity === 'critical'
-                    ? 'bg-red-50 text-red-700 border-red-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                }`}>
-                  <span className="font-semibold truncate">
-                    {FAULT_LABELS[diagnosis!.fault_type!] ?? diagnosis!.fault_type}
-                  </span>
-                  <span className="font-bold shrink-0">
-                    {diagnosis!.confidence != null
-                      ? `${Math.round(Number(diagnosis!.confidence))}%`
-                      : ''}
-                    {diagnosis!.rul_days != null && (
-                      <span className="ml-1 font-normal opacity-75">· {diagnosis!.rul_days}일</span>
-                    )}
-                  </span>
-                </div>
-              )}
-            </>
-          )}
+            </div>
+          )
+        })()}
 
-          {/* 마지막 측정 시각 */}
-          {motor.last_measured_at && (
-            <p className="text-[9px] text-slate-300 text-right mt-auto">
-              {new Date(motor.last_measured_at).toLocaleTimeString('ko-KR')}
-            </p>
-          )}
+        {/* 핵심 지표 카드 3개 */}
+        <div className="grid grid-cols-3 gap-3">
+          <MetricCard
+            label="진동 RMS (Y축)"
+            value={vel}
+            unit="mm/s"
+            delta={m?.vel_y_delta}
+            warn={VEL_WARN}
+            crit={VEL_CRIT}
+            format={v => v.toFixed(2)}
+            offline={isOffline}
+          />
+          <MetricCard
+            label="온도"
+            value={temp}
+            unit="°C"
+            delta={m?.temp_delta}
+            warn={TEMP_WARN}
+            crit={TEMP_CRIT}
+            format={v => Math.round(v).toString()}
+            offline={isOffline}
+          />
+          <MetricCard
+            label="Kurtosis (Y축)"
+            value={kurt}
+            unit=""
+            warn={KURT_WARN}
+            crit={KURT_CRIT}
+            format={v => v.toFixed(2)}
+            offline={isOffline}
+          />
         </div>
+
+        {/* 트렌드 차트 3종 — 남은 공간 채우기 */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-3 gap-3">
+          <TrendChart
+            label="진동 RMS 추이 (최근 1h)"
+            unit="mm/s"
+            data={velTrend}
+            color="#3b82f6"
+            warningLine={VEL_WARN}
+            criticalLine={VEL_CRIT}
+          />
+          <TrendChart
+            label="온도 추이 (최근 1h)"
+            unit="°C"
+            data={tempTrend}
+            color="#f97316"
+            warningLine={TEMP_WARN}
+            criticalLine={TEMP_CRIT}
+          />
+          <TrendChart
+            label="Kurtosis 추이 (최근 1h)"
+            unit=""
+            data={kurtTrend}
+            color="#8b5cf6"
+            warningLine={KURT_WARN}
+            criticalLine={KURT_CRIT}
+          />
+        </div>
+
       </div>
-    </Link>
+
+      {/* ── 우측: AI 진단 (전체 높이) */}
+      <div className="w-full lg:w-80 shrink-0 h-full">
+        <DiagnosisCard diagnosis={latestDiagnosis} />
+      </div>
+
+    </div>
   )
 }
 
 // ── 대시보드 페이지 ───────────────────────────────────────
 
 export default function DashboardPage() {
-  const { data: motorRes, error: motorErr, isLoading: motorLoading } =
-    useSWR<ApiResponse<MotorStatus[]>>('/api/motors', fetcher, { refreshInterval: 30_000 })
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const { data: diagRes } =
-    useSWR<ApiResponse<MotorDiagnosis[]>>('/api/diagnosis', fetcher, { refreshInterval: 30_000 })
+  const { data: motorRes, mutate: mutateMotors } =
+    useSWR<ApiResponse<MotorStatus[]>>('/api/motors', fetcher, {
+      refreshInterval: 10_000,
+      onSuccess: () => setLastUpdated(new Date()),
+    })
 
-  const { data: sparklineRes } =
-    useSWR<{ data: Record<number, number[]> }>('/api/dashboard/sparklines', fetcher, { refreshInterval: 60_000 })
+  const motors = motorRes?.data ?? []
 
-  const motors     = motorRes?.data    ?? []
-  const diagnoses  = diagRes?.data     ?? []
-  const sparklines = sparklineRes?.data ?? {}
+  // 첫 로드 시 자동 선택: critical > warning > 첫 번째
+  useEffect(() => {
+    if (selectedId !== null || motors.length === 0) return
+    const first =
+      motors.find(m => m.severity === 'critical') ??
+      motors.find(m => m.severity === 'warning')  ??
+      motors[0]
+    if (first) setSelectedId(first.id)
+  }, [motors, selectedId])
 
-  const diagMap = new Map(diagnoses.map(d => [d.motor_id, d]))
+  const { data: detailRes, isLoading: detailLoading, mutate: mutateDetail } =
+    useSWR<{ data: MotorDetailData }>(
+      selectedId ? `/api/motors/${selectedId}` : null,
+      fetcher, { refreshInterval: 10_000 }
+    )
 
-  // 경보/주의 먼저 정렬
-  const sortedMotors = [...motors].sort((a, b) => {
-    const order = { critical: 0, warning: 1, normal: 2 }
-    return order[a.severity] - order[b.severity]
-  })
+  const { data: trendRes, mutate: mutateTrend } =
+    useSWR<{ data: TrendRow[] }>(
+      selectedId ? `/api/motors/${selectedId}/measurements?hours=1&bucket=minute&anchor=latest` : null,
+      fetcher, { refreshInterval: 10_000 }
+    )
 
-  // 통계 (센서 원시 데이터 기준)
-  const onlineMotors = motors.filter(m => m.last_measured_at)
-  const vibAnomaly   = onlineMotors.filter(m => Number(m.vel_y_rms ?? 0) > VEL_WARN).length
-  const tempAnomaly  = onlineMotors.filter(m => Number(m.temperature_c ?? 0) > TEMP_WARN).length
+  // 10초마다 더미 측정값 삽입 → 완료 후 SWR 강제 갱신
+  useEffect(() => {
+    const run = async () => {
+      try {
+        await fetch('/api/dev/simulate', { method: 'POST' })
+        await Promise.all([mutateMotors(), mutateDetail(), mutateTrend()])
+      } catch { /* ignore */ }
+    }
+    run() // 첫 마운트 즉시 실행
+    const id = setInterval(run, 10_000)
+    return () => clearInterval(id)
+  }, [mutateMotors, mutateDetail, mutateTrend])
 
-  // 10대 기준 5열×2행 — 4열(8대)까지는 1fr로 화면 채움, 5열 이상은 고정폭으로 가로 스크롤
-  const cols = Math.max(1, Math.ceil(sortedMotors.length / 2))
-  const colTemplate = cols <= 4
-    ? `repeat(${cols}, 1fr)`
-    : `repeat(${cols}, 240px)`
+  const detail         = detailRes?.data
+  const trendData      = trendRes?.data ?? []
+  const selectedStatus = motors.find(m => m.id === selectedId)
+
+  const critCount = motors.filter(m => m.severity === 'critical').length
+  const warnCount = motors.filter(m => m.severity === 'warning').length
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden p-3 sm:p-4 lg:p-5">
-      {/* ── 헤더 ────────────────────────────────────────── */}
-      <div className="mb-3 shrink-0">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">대시보드</h1>
-          <span className="text-xs text-slate-400">30초마다 자동 갱신</span>
-        </div>
 
-        {/* 통계 바 */}
-        <div className="flex items-center gap-1 mt-1.5 flex-wrap gap-y-1.5">
-          <StatChip label="전체" value={motors.length} unit="대" dot="bg-slate-400" />
-          <Divider />
-          <StatChip label="진동 이상" value={vibAnomaly}  unit="대" dot={vibAnomaly  > 0 ? 'bg-amber-400' : 'bg-slate-300'} />
-          <StatChip label="온도 이상" value={tempAnomaly} unit="대" dot={tempAnomaly > 0 ? 'bg-orange-400' : 'bg-slate-300'} />
+      {/* ── 헤더 */}
+      <div className="flex items-center justify-between gap-2 mb-3 shrink-0 flex-wrap gap-y-1.5">
+        <div className="flex items-center gap-3 flex-wrap gap-y-1.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">대시보드</h1>
+          <div className="flex items-center gap-1.5">
+            <StatChip label="전체"  value={motors.length} unit="대" dot="bg-slate-400" />
+            {critCount > 0 && <StatChip label="경보" value={critCount} unit="대" dot="bg-red-500" />}
+            {warnCount > 0 && <StatChip label="주의" value={warnCount} unit="대" dot="bg-amber-400" />}
+          </div>
         </div>
+        <span className="text-xs text-slate-400">
+          {lastUpdated
+            ? `업데이트 ${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+            : '업데이트 중...'}
+        </span>
       </div>
 
-      {/* ── AI 분석 리포트 ───────────────────────────────── */}
-      <AiReportPanel />
+      {/* ── 모터 선택 칩 */}
+      <div
+        className="flex items-center gap-2 overflow-x-auto pb-1.5 mb-3 shrink-0"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {motors.length === 0
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-8 w-20 bg-slate-100 rounded-lg animate-pulse shrink-0" />
+            ))
+          : motors.map(motor => (
+              <MotorChip
+                key={motor.id}
+                motor={motor}
+                selected={selectedId === motor.id}
+                onClick={() => setSelectedId(motor.id)}
+              />
+            ))
+        }
+      </div>
 
-      {/* ── 설비 현황 — 2행 가로 스크롤 ─────────────────── */}
-      <div className="shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-wide">
-            설비 현황
-          </h2>
-          <Link href="/motors" className="text-xs text-blue-600 hover:underline">
-            목록 보기 →
-          </Link>
-        </div>
-
-        {/* 스켈레톤 */}
-        {motorLoading && (
-          <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-            <div
-              className="grid gap-3"
-              style={{
-                gridTemplateColumns: 'repeat(5, 240px)',
-                gridTemplateRows: 'repeat(2, auto)',
-                gridAutoFlow: 'column',
-              }}
-            >
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-slate-200 p-3 h-48 animate-pulse">
-                  <div className="h-4 bg-slate-100 rounded w-1/2 mb-2" />
-                  <div className="h-3 bg-slate-100 rounded w-1/3" />
-                </div>
-              ))}
-            </div>
+      {/* ── 선택된 모터 대시보드 (스크롤 영역) */}
+      <div className="flex-1 overflow-y-auto min-h-0" style={{ scrollbarWidth: 'thin' }}>
+        {selectedId === null ? (
+          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+            위에서 모터를 선택하세요
           </div>
-        )}
-
-        {/* 에러 */}
-        {motorErr && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-center text-red-600">
-            <p className="font-semibold">데이터를 불러올 수 없습니다</p>
-            <p className="text-sm mt-1">PostgreSQL 서버 연결을 확인해주세요</p>
-          </div>
-        )}
-
-        {/* 카드 — 10대 기준 5열×2행, 초과 시 가로 스크롤 */}
-        {!motorLoading && !motorErr && (
-          <div className="overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
-            <div
-              className="grid gap-3"
-              style={{
-                gridTemplateColumns: colTemplate,
-                gridTemplateRows: 'repeat(2, auto)',
-                gridAutoFlow: 'column',
-              }}
-            >
-              {sortedMotors.map(motor => (
-                <MotorCard
-                  key={motor.id}
-                  motor={motor}
-                  diagnosis={diagMap.get(motor.id)}
-                  sparkline={sparklines[motor.id]}
-                />
-              ))}
-            </div>
-          </div>
+        ) : (
+          <MotorDashboard
+            selectedStatus={selectedStatus}
+            detail={detail}
+            trendData={trendData}
+            isLoading={detailLoading}
+          />
         )}
       </div>
 
@@ -491,19 +712,15 @@ export default function DashboardPage() {
 
 // ── 소형 컴포넌트 ─────────────────────────────────────────
 
-function StatChip({ label, value, unit, dot, pulse = false }: {
-  label: string; value: number; unit: string; dot: string; pulse?: boolean
+function StatChip({ label, value, unit, dot }: {
+  label: string; value: number; unit: string; dot: string
 }) {
   return (
-    <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
-      <span className={`w-2 h-2 rounded-full shrink-0 ${dot} ${pulse ? 'animate-pulse' : ''}`} />
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
       <span className="text-xs text-slate-500">{label}</span>
       <span className="text-sm font-bold text-slate-800">{value}</span>
       <span className="text-xs text-slate-400">{unit}</span>
     </div>
   )
-}
-
-function Divider() {
-  return <div className="w-px h-5 bg-slate-200 mx-0.5 sm:mx-1 hidden sm:block" />
 }
