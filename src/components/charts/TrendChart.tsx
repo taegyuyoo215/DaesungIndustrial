@@ -14,12 +14,12 @@ interface TrendChartProps {
   color?: string
   warningLine?: number
   criticalLine?: number
+  bare?: boolean  // Widget 내부용 — 카드 래퍼·헤더 생략, absolute inset-0 으로 채움
 }
 
 export default function TrendChart({
-  label, unit, data = [], color = '#3b82f6', warningLine, criticalLine,
+  label, unit, data = [], color = '#3b82f6', warningLine, criticalLine, bare = false,
 }: TrendChartProps) {
-  // 데이터 시간 범위가 6시간 미만이면 HH:mm 형식으로 표시
   const rangeMs =
     data.length >= 2
       ? new Date(data[data.length - 1].time).getTime() - new Date(data[0].time).getTime()
@@ -37,6 +37,58 @@ export default function TrendChart({
     ? Math.max(0, Math.floor(data.length / 6) - 1)
     : 'preserveStartEnd' as const
 
+  // 차트 본체 (bare / normal 공용)
+  const lineChart = (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+        <XAxis
+          dataKey="time"
+          tick={{ fontSize: 9 }}
+          tickFormatter={tickFmt}
+          interval={tickInterval}
+        />
+        <YAxis tick={{ fontSize: 9 }} width={35} />
+        <Tooltip
+          formatter={(v) => [`${Number(v).toFixed(2)} ${unit}`, label]}
+          labelFormatter={(l) => new Date(l).toLocaleString('ko-KR')}
+          contentStyle={{ fontSize: 12 }}
+        />
+        {warningLine !== undefined && (
+          <ReferenceLine
+            y={warningLine} stroke="#f59e0b" strokeDasharray="3 3"
+            label={{ value: '주의', position: 'insideTopRight', fontSize: 9, fill: '#f59e0b' }}
+          />
+        )}
+        {criticalLine !== undefined && (
+          <ReferenceLine
+            y={criticalLine} stroke="#ef4444" strokeDasharray="3 3"
+            label={{ value: '경보', position: 'insideTopRight', fontSize: 9, fill: '#ef4444' }}
+          />
+        )}
+        <Line
+          type="monotone" dataKey="value" stroke={color}
+          strokeWidth={1.5} dot={false} connectNulls
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+
+  // ── bare 모드: Widget content div(position:relative) 기준으로 꽉 채움
+  if (bare) {
+    return (
+      <div className="absolute inset-0">
+        {data.length === 0 ? (
+          <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+            데이터 없음
+          </div>
+        ) : lineChart}
+      </div>
+    )
+  }
+
+  // ── 일반 모드: 자체 카드 래퍼 포함
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col h-full">
       <div className="flex items-center justify-between mb-3 shrink-0">
@@ -48,42 +100,7 @@ export default function TrendChart({
           데이터 없음
         </div>
       ) : (
-        <div className="flex-1 min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 9 }}
-                tickFormatter={tickFmt}
-                interval={tickInterval}
-              />
-              <YAxis tick={{ fontSize: 9 }} width={35} />
-              <Tooltip
-                formatter={(v) => [`${Number(v).toFixed(2)} ${unit}`, label]}
-                labelFormatter={(l) => new Date(l).toLocaleString('ko-KR')}
-                contentStyle={{ fontSize: 12 }}
-              />
-              {warningLine !== undefined && (
-                <ReferenceLine
-                  y={warningLine} stroke="#f59e0b" strokeDasharray="3 3"
-                  label={{ value: '주의', position: 'insideTopRight', fontSize: 9, fill: '#f59e0b' }}
-                />
-              )}
-              {criticalLine !== undefined && (
-                <ReferenceLine
-                  y={criticalLine} stroke="#ef4444" strokeDasharray="3 3"
-                  label={{ value: '경보', position: 'insideTopRight', fontSize: 9, fill: '#ef4444' }}
-                />
-              )}
-              <Line
-                type="monotone" dataKey="value" stroke={color}
-                strokeWidth={1.5} dot={false} connectNulls
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <div className="flex-1 min-h-0">{lineChart}</div>
       )}
     </div>
   )

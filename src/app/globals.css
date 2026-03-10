@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
 
 :root {
   --background: #f8fafc;
@@ -8,4 +10,39 @@
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* react-grid-layout 리사이즈 핸들 커스텀 스타일 */
+.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #94a3b8;
+  border-bottom: 2px solid #94a3b8;
+  border-radius: 1px;
+}
+.react-grid-item:hover .react-resizable-handle,
+.react-grid-item.resizing .react-resizable-handle {
+  opacity: 1;
+}
+
+/* 드래그 중 위젯 플레이스홀더 스타일 */
+.react-grid-item.react-grid-placeholder {
+  background: #3b82f6;
+  opacity: 0.1;
+  border-radius: 12px;
+  border: 2px dashed #3b82f6;
 }
