@@ -9,14 +9,14 @@ import type { Alarm, ApiResponse } from '@/types'
 // ── 상수 ──────────────────────────────────────────────────
 
 const severityConfig = {
-  critical: { dot: 'bg-red-500 animate-pulse', badge: 'bg-red-50 text-red-700 border-red-200',       label: '경보' },
-  warning:  { dot: 'bg-yellow-400',            badge: 'bg-yellow-50 text-yellow-700 border-yellow-200', label: '주의' },
+  critical: { dot: 'bg-red-500 animate-pulse', badge: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200',       label: '경보' },
+  warning:  { dot: 'bg-yellow-400',            badge: 'bg-yellow-50 dark:bg-amber-900/20 text-yellow-700 dark:text-amber-400 border-yellow-200', label: '주의' },
 } as const
 
 const stateConfig = {
-  active:       { label: '활성',   style: 'bg-red-50 text-red-600 border border-red-200'   },
+  active:       { label: '활성',   style: 'bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-200'   },
   acknowledged: { label: '확인됨', style: 'bg-blue-50 text-blue-600 border border-blue-200' },
-  resolved:     { label: '해결됨', style: 'bg-green-50 text-green-600 border border-green-200' },
+  resolved:     { label: '해결됨', style: 'bg-green-50 dark:bg-emerald-900/20 text-green-600 border border-green-200' },
 } as const
 
 // ── 알람 행 ────────────────────────────────────────────────
@@ -49,7 +49,7 @@ function AlarmRow({ alarm, onAction }: { alarm: Alarm; onAction: () => void }) {
   }
 
   return (
-    <tr className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+    <tr className="border-t border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
       <td className="px-5 py-4">
         <div className="flex items-center gap-2">
           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${sc.dot}`} />
@@ -60,20 +60,20 @@ function AlarmRow({ alarm, onAction }: { alarm: Alarm; onAction: () => void }) {
       </td>
       <td className="px-5 py-4">
         <Link href={`/motors/${alarm.motor_id}`} className="hover:underline">
-          <p className="text-sm font-semibold text-slate-800">{alarm.motor_name}</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{alarm.motor_name}</p>
         </Link>
-        <p className="text-xs text-slate-400 mt-0.5">{alarm.motor_location}</p>
+        <p className="text-xs text-slate-400 dark:text-slate-600 mt-0.5">{alarm.motor_location}</p>
       </td>
       <td className="px-5 py-4">
-        <p className="text-sm font-medium text-slate-700">{alarm.fault_type ?? '—'}</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{alarm.fault_type ?? '—'}</p>
         <p className="text-xs text-slate-500 mt-0.5 max-w-xs truncate">{alarm.message}</p>
       </td>
       <td className="px-5 py-4">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           {new Date(alarm.triggered_at).toLocaleString('ko-KR')}
         </p>
         {alarm.resolved_at && (
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-400 dark:text-slate-600 mt-0.5">
             해결: {new Date(alarm.resolved_at).toLocaleString('ko-KR')}
           </p>
         )}
@@ -83,7 +83,7 @@ function AlarmRow({ alarm, onAction }: { alarm: Alarm; onAction: () => void }) {
           {ac.label}
         </span>
         {alarm.acknowledged_by_name && (
-          <p className="text-[11px] text-slate-400 mt-1">{alarm.acknowledged_by_name}</p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-1">{alarm.acknowledged_by_name}</p>
         )}
       </td>
       <td className="px-5 py-4">
@@ -155,7 +155,7 @@ export default function AlarmsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">알람 이력</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">알람 이력</h1>
           <p className="text-sm text-slate-500 mt-1">
             활성 알람 {activeCount}건 · 경보 {criticalCount}건
           </p>
@@ -163,26 +163,26 @@ export default function AlarmsPage() {
       </div>
 
       {/* 필터 바 */}
-      <div className="bg-white rounded-xl border border-slate-200 px-5 py-4 mb-6 flex items-center gap-4 flex-wrap">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-4 mb-6 flex items-center gap-4 flex-wrap">
         <div className="flex gap-2">
           {['전체', '경보', '주의'].map(f => (
             <button
               key={f}
               onClick={() => { setSeverityFilter(f); setPage(1) }}
               className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                severityFilter === f ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'
+                severityFilter === f ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >{f}</button>
           ))}
         </div>
-        <div className="w-px h-6 bg-slate-200" />
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800" />
         <div className="flex gap-2">
           {['전체 상태', '활성', '확인됨', '해결됨'].map(f => (
             <button
               key={f}
               onClick={() => { setStateFilter(f); setPage(1) }}
               className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                stateFilter === f ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-50'
+                stateFilter === f ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/30'
               }`}
             >{f}</button>
           ))}
@@ -193,16 +193,16 @@ export default function AlarmsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="모터명, 메시지 검색..."
-            className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 w-48 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-1.5 w-48 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
           />
         </div>
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800">
               {['심각도', '모터', '고장 유형 / 메시지', '발생 시간', '상태', '액션'].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   {h}
@@ -224,7 +224,7 @@ export default function AlarmsPage() {
         </table>
 
         {/* 페이지네이션 */}
-        <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
           <p className="text-xs text-slate-400">총 {total}건</p>
           <div className="flex gap-1">
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
@@ -232,7 +232,7 @@ export default function AlarmsPage() {
                 key={p}
                 onClick={() => setPage(p)}
                 className={`w-8 h-8 text-sm rounded-lg ${
-                  p === page ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'
+                  p === page ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >{p}</button>
             ))}

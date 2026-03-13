@@ -3,7 +3,8 @@ import { query } from '@/lib/db'
 import type { MotorStatus, Severity } from '@/types'
 
 function calcSeverity(row: Record<string, unknown>): Severity {
-  if (Number(row.active_alarms) > 0) return 'critical'
+  if (Number(row.active_critical_alarms) > 0) return 'critical'
+  if (Number(row.active_warning_alarms) > 0) return 'warning'
   if (Number(row.vel_y_rms) > 2.8 || Number(row.temperature_c) > 70) return 'warning'
   return 'normal'
 }
@@ -31,8 +32,12 @@ export async function GET() {
         ROUND((lm.kurtosis_x   - pm.prev_kurtosis)::numeric, 3) AS kurtosis_delta,
         (
           SELECT COUNT(*) FROM alarms a
-          WHERE a.motor_id = m.id AND a.state = 'active'
-        ) AS active_alarms
+          WHERE a.motor_id = m.id AND a.state = 'active' AND a.severity = 'critical'
+        ) AS active_critical_alarms,
+        (
+          SELECT COUNT(*) FROM alarms a
+          WHERE a.motor_id = m.id AND a.state = 'active' AND a.severity = 'warning'
+        ) AS active_warning_alarms
       FROM motors m
       JOIN sites si ON si.id = m.site_id
       LEFT JOIN sensors sens ON sens.motor_id = m.id AND sens.status = 'active'

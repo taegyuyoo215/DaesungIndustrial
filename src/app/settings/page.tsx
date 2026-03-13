@@ -11,9 +11,9 @@ const tabs = ['센서 관리', '임계값 설정', '알림 설정', '사용자 �
 
 function SensorStatusBadge({ status }: { status: string }) {
   const s: Record<string, string> = {
-    active:   'bg-green-50 text-green-700 border-green-200',
-    inactive: 'bg-slate-50 text-slate-500 border-slate-200',
-    error:    'bg-red-50 text-red-700 border-red-200',
+    active:   'bg-green-50 dark:bg-emerald-900/20 text-green-700 dark:text-emerald-400 border-green-200',
+    inactive: 'bg-slate-50 dark:bg-[#0a0f1e] text-slate-500 border-slate-200 dark:border-slate-800',
+    error:    'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200',
   }
   const labels: Record<string, string> = { active: '활성', inactive: '비활성', error: '오류' }
   return (
@@ -47,15 +47,15 @@ function SensorManagementTab() {
   return (
     <div className="space-y-6">
       {/* 등록된 센서 목록 */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-700">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             등록된 센서 {isLoading ? '…' : `(${sensors.length})`}
           </h3>
         </div>
         <table className="w-full">
           <thead>
-            <tr className="bg-slate-50">
+            <tr className="bg-slate-50 dark:bg-[#0a0f1e]">
               {['시리얼', '연결 모터', 'Modbus', 'Fmax', 'HFE', '상태', '마지막 수신', '액션'].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   {h}
@@ -74,9 +74,9 @@ function SensorManagementTab() {
               </tr>
             ) : (
               sensors.map(s => (
-                <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-5 py-3 text-sm font-mono text-slate-700">{s.serial_number}</td>
-                  <td className="px-5 py-3 text-sm text-slate-700">{s.motor_name ?? `Motor #${s.motor_id}`}</td>
+                <tr key={s.id} className="border-t border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td className="px-5 py-3 text-sm font-mono text-slate-700 dark:text-slate-300">{s.serial_number}</td>
+                  <td className="px-5 py-3 text-sm text-slate-700 dark:text-slate-300">{s.motor_name ?? `Motor #${s.motor_id}`}</td>
                   <td className="px-5 py-3 text-sm text-slate-500">#{s.modbus_addr}</td>
                   <td className="px-5 py-3 text-sm text-slate-500">
                     {['5300Hz','2650Hz','1325Hz','662Hz','325Hz'][s.fmax_setting - 1]}
@@ -87,7 +87,7 @@ function SensorManagementTab() {
                   <td className="px-5 py-3">
                     <SensorStatusBadge status={s.status} />
                   </td>
-                  <td className="px-5 py-3 text-xs text-slate-400 whitespace-nowrap">
+                  <td className="px-5 py-3 text-xs text-slate-400 dark:text-slate-600 whitespace-nowrap">
                     {s.last_seen_at ? new Date(s.last_seen_at).toLocaleString('ko-KR') : '—'}
                   </td>
                   <td className="px-5 py-3">
@@ -164,13 +164,13 @@ function ThresholdTab() {
       </div>
 
       {/* 현재 임계값 목록 */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-700">현재 임계값 목록</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/60">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">현재 임계값 목록</h3>
         </div>
         <table className="w-full">
           <thead>
-            <tr className="bg-slate-50">
+            <tr className="bg-slate-50 dark:bg-[#0a0f1e]">
               {['대상 모터', '항목', '주의', '경보', '단위'].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   {h}
@@ -185,13 +185,13 @@ function ThresholdTab() {
               </tr>
             ) : (
               thresholds.map(t => (
-                <tr key={t.id} className="border-t border-slate-100">
-                  <td className="px-5 py-3 text-sm text-slate-700">
+                <tr key={t.id} className="border-t border-slate-100 dark:border-slate-800/60">
+                  <td className="px-5 py-3 text-sm text-slate-700 dark:text-slate-300">
                     {t.motor_id
                       ? (motors.find(m => m.id === t.motor_id)?.name ?? `Motor #${t.motor_id}`)
                       : '전역 기본값'}
                   </td>
-                  <td className="px-5 py-3 text-sm text-slate-700">
+                  <td className="px-5 py-3 text-sm text-slate-700 dark:text-slate-300">
                     {metricOptions.find(o => o.value === t.metric)?.label ?? t.metric}
                   </td>
                   <td className="px-5 py-3 text-sm font-semibold text-yellow-600">
@@ -200,7 +200,7 @@ function ThresholdTab() {
                   <td className="px-5 py-3 text-sm font-semibold text-red-600">
                     {Number(t.alarm_value).toFixed(1)}
                   </td>
-                  <td className="px-5 py-3 text-sm text-slate-400">{t.unit ?? '—'}</td>
+                  <td className="px-5 py-3 text-sm text-slate-400 dark:text-slate-600">{t.unit ?? '—'}</td>
                 </tr>
               ))
             )}
@@ -209,15 +209,15 @@ function ThresholdTab() {
       </div>
 
       {/* 임계값 편집 */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">임계값 추가 / 수정</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">임계값 추가 / 수정</h3>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1.5">대상 모터</label>
             <select
               value={selectedMotorId}
               onChange={e => setSelectedMotorId(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
             >
               <option value="">전역 기본값</option>
               {motors.map(m => (
@@ -230,7 +230,7 @@ function ThresholdTab() {
             <select
               value={metric}
               onChange={e => setMetric(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
             >
               {metricOptions.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -261,7 +261,7 @@ function ThresholdTab() {
           <button
             onClick={handleSave}
             disabled={saving || !warnVal || !alarmVal}
-            className="bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-5 py-2 rounded-lg disabled:opacity-50"
+            className="bg-slate-900 dark:bg-slate-100 hover:bg-slate-700 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-medium px-5 py-2 rounded-lg disabled:opacity-50"
           >
             {saving ? '저장 중...' : '저장'}
           </button>
@@ -292,15 +292,15 @@ function NotificationTab() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-5">이메일 알림 설정</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-5">이메일 알림 설정</h3>
         <div className="space-y-4">
           {items.map(item => (
-            <div key={item.key} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-              <span className="text-sm text-slate-700">{item.label}</span>
+            <div key={item.key} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+              <span className="text-sm text-slate-700 dark:text-slate-300">{item.label}</span>
               <button
                 onClick={() => setToggles(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
-                className={`w-10 h-6 rounded-full transition-colors ${toggles[item.key] ? 'bg-blue-600' : 'bg-slate-200'}`}
+                className={`w-10 h-6 rounded-full transition-colors ${toggles[item.key] ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow mt-1 mx-auto transition-transform ${
                   toggles[item.key] ? 'translate-x-2' : '-translate-x-2'
@@ -311,19 +311,19 @@ function NotificationTab() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">수신자 목록</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">수신자 목록</h3>
         <div className="space-y-2 mb-4">
           {['engineer@company.com', 'manager@company.com'].map(email => (
-            <div key={email} className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-2.5">
-              <span className="text-sm text-slate-700">{email}</span>
+            <div key={email} className="flex items-center justify-between bg-slate-50 dark:bg-[#0a0f1e] rounded-lg px-4 py-2.5">
+              <span className="text-sm text-slate-700 dark:text-slate-300">{email}</span>
               <button className="text-xs text-red-500 hover:underline">삭제</button>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
           <input
-            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
             placeholder="이메일 주소 추가..."
           />
           <button className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg">추가</button>
@@ -342,7 +342,7 @@ export default function SettingsPage() {
     <SensorManagementTab key="sensor" />,
     <ThresholdTab key="threshold" />,
     <NotificationTab key="notification" />,
-    <div key="user" className="bg-white rounded-xl border border-slate-200 p-6 text-sm text-slate-500">
+    <div key="user" className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 text-sm text-slate-500">
       사용자 관리 (준비 중)
     </div>,
   ]
@@ -350,12 +350,12 @@ export default function SettingsPage() {
   return (
     <div className="p-8 max-w-screen-xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">설정</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">설정</h1>
         <p className="text-sm text-slate-500 mt-1">센서, 임계값, 알림 설정을 관리합니다</p>
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 border-b border-slate-200 mb-6">
+      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800 mb-6">
         {tabs.map((tab, i) => (
           <button
             key={tab}
@@ -363,7 +363,7 @@ export default function SettingsPage() {
             className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
               activeTab === i
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
             {tab}

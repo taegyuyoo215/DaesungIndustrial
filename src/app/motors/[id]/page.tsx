@@ -91,15 +91,15 @@ function MeasurementRow({ label, x, y, z, unit, warnVal }: {
 }) {
   const cell = (v: number | null) => (
     <td className={`px-4 py-3 text-sm font-semibold text-right ${
-      v !== null && v > warnVal ? 'text-red-600' : 'text-slate-700'
+      v !== null && v > warnVal ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'
     }`}>
       {v !== null ? Number(v).toFixed(2) : '—'}
-      <span className="font-normal text-slate-400 text-xs ml-1">{unit}</span>
+      <span className="font-normal text-slate-400 dark:text-slate-600 text-xs ml-1">{unit}</span>
     </td>
   )
   return (
-    <tr className="border-t border-slate-100">
-      <td className="px-4 py-3 text-sm text-slate-600">{label}</td>
+    <tr className="border-t border-slate-100 dark:border-slate-800/60">
+      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{label}</td>
       {cell(x)}{cell(y)}{cell(z)}
     </tr>
   )
@@ -150,9 +150,9 @@ export default function MotorDetailPage() {
   if (isLoading) {
     return (
       <div className="p-8 max-w-screen-xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-slate-100 rounded w-1/3" />
-        <div className="h-48 bg-slate-100 rounded-xl" />
-        <div className="h-48 bg-slate-100 rounded-xl" />
+        <div className="h-8 bg-slate-100 dark:bg-slate-800 rounded w-1/3" />
+        <div className="h-48 bg-slate-100 dark:bg-slate-800 rounded-xl" />
+        <div className="h-48 bg-slate-100 dark:bg-slate-800 rounded-xl" />
       </div>
     )
   }
@@ -160,7 +160,7 @@ export default function MotorDetailPage() {
   if (!motor) {
     return (
       <div className="p-8 max-w-screen-xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-red-600">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-slate-800 rounded-xl p-6 text-center text-red-600 dark:text-red-400">
           모터를 찾을 수 없습니다.
         </div>
       </div>
@@ -171,16 +171,16 @@ export default function MotorDetailPage() {
     <div className="p-8 max-w-screen-xl mx-auto">
       {/* 브레드크럼 */}
       <div className="flex items-center gap-3 mb-2">
-        <Link href="/" className="text-sm text-slate-400 hover:text-slate-600">대시보드</Link>
-        <span className="text-slate-300">/</span>
-        <span className="text-sm text-slate-700 font-medium">{motor.name}</span>
+        <Link href="/" className="text-sm text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400">대시보드</Link>
+        <span className="text-slate-300 dark:text-slate-700">/</span>
+        <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{motor.name}</span>
       </div>
 
       {/* 헤더 */}
       <div className="flex items-start justify-between mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900">{motor.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{motor.name}</h1>
             <StatusBadge status={!m ? 'offline' : severity} />
           </div>
           <p className="text-sm text-slate-500 mt-1">
@@ -190,7 +190,7 @@ export default function MotorDetailPage() {
         </div>
         <Link
           href="/maintenance"
-          className="border border-slate-300 text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50"
+          className="border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/30"
         >
           정비 이력
         </Link>
@@ -221,14 +221,14 @@ export default function MotorDetailPage() {
               </div>
 
               {diag.rul_days != null && (
-                <div className={`mt-4 bg-white rounded-lg px-4 py-3 border flex items-center justify-between ${ss.rul}`}>
+                <div className={`mt-4 bg-white dark:bg-slate-900 rounded-lg px-4 py-3 border flex items-center justify-between ${ss.rul}`}>
                   <div>
                     <p className="text-xs text-slate-500">예측 잔존 수명 (RUL)</p>
                     <p className={`text-xl font-bold mt-0.5 ${ss.title}`}>
                       {diag.rul_days}일 이내 정비 필요
                     </p>
                   </div>
-                  <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="w-24 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full ${ss.bar}`}
                       style={{ width: `${Math.min((diag.rul_days / 90) * 100, 100)}%` }}
@@ -241,11 +241,11 @@ export default function MotorDetailPage() {
                 <div className="mt-4 space-y-2">
                   <p className={`text-xs font-semibold uppercase tracking-wide ${ss.badge}`}>진단 근거</p>
                   {diag.evidence.metrics.map((ev) => (
-                    <div key={ev.label} className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 border border-slate-100">
-                      <span className="text-sm text-slate-700">{ev.label}</span>
+                    <div key={ev.label} className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-lg px-4 py-2.5 border border-slate-100 dark:border-slate-800/60">
+                      <span className="text-sm text-slate-700 dark:text-slate-300">{ev.label}</span>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400">임계: {ev.threshold}</span>
-                        <span className={`text-sm font-bold ${ev.exceeded ? 'text-red-600' : 'text-green-600'}`}>
+                        <span className="text-xs text-slate-400 dark:text-slate-600">임계: {ev.threshold}</span>
+                        <span className={`text-sm font-bold ${ev.exceeded ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-emerald-400'}`}>
                           {ev.value} {ev.exceeded ? '↑' : '✓'}
                         </span>
                       </div>
@@ -255,24 +255,24 @@ export default function MotorDetailPage() {
               )}
             </div>
           ) : (
-            <div className="bg-green-50 border-2 border-green-300 rounded-xl p-5">
+            <div className="bg-green-50 dark:bg-emerald-900/20 border-2 border-green-300 rounded-xl p-5">
               <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mb-1">AI 진단 결과</p>
-              <p className="text-lg font-bold text-green-800">진단 데이터 없음</p>
-              <p className="text-sm text-green-600 mt-1">측정 데이터가 충분히 쌓이면 자동으로 진단됩니다.</p>
+              <p className="text-lg font-bold text-green-800 dark:text-emerald-400">진단 데이터 없음</p>
+              <p className="text-sm text-green-600 dark:text-emerald-400 mt-1">측정 데이터가 충분히 쌓이면 자동으로 진단됩니다.</p>
             </div>
           )}
 
           {/* 최신 측정값 테이블 */}
           {m ? (
-            <div className="bg-white rounded-xl border border-slate-200">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <h3 className="text-sm font-semibold text-slate-700">최신 측정값</h3>
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/60">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">최신 측정값</h3>
               </div>
               <table className="w-full">
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 dark:bg-[#0a0f1e]">
                     {['항목', 'X축', 'Y축', 'Z축'].map(h => (
-                      <th key={h} className={`px-4 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide ${h === '항목' ? 'text-left' : 'text-right'}`}>
+                      <th key={h} className={`px-4 py-2.5 text-xs font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-wide ${h === '항목' ? 'text-left' : 'text-right'}`}>
                         {h}
                       </th>
                     ))}
@@ -285,28 +285,28 @@ export default function MotorDetailPage() {
                   <MeasurementRow label="Kurtosis"        x={m.kurtosis_x}      y={m.kurtosis_y}       z={m.kurtosis_z}      unit=""     warnVal={Number(kurtTh?.warn_value ?? 5.0)} />
                 </tbody>
               </table>
-              <div className="px-5 py-3 border-t border-slate-100 flex items-center gap-4">
+              <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center gap-4">
                 <span className="text-xs text-slate-500">온도</span>
                 <span className={`text-sm font-bold ${
                   m.temperature_c !== null && tempTh && Number(m.temperature_c) > tempTh.warn_value
-                    ? 'text-red-600' : 'text-slate-700'
+                    ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'
                 }`}>
                   {m.temperature_c != null ? `${Number(m.temperature_c).toFixed(1)} °C` : '—'}
                 </span>
-                <span className="text-xs text-slate-400 ml-auto">
+                <span className="text-xs text-slate-400 dark:text-slate-600 ml-auto">
                   업데이트: {new Date(m.time).toLocaleString('ko-KR')}
                 </span>
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 text-center text-slate-400 dark:text-slate-600 text-sm">
               측정 데이터가 없습니다 (센서 오프라인)
             </div>
           )}
 
           {/* 트렌드 차트 (7일) */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">진동·온도 트렌드 (최근 7일)</h3>
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">진동·온도 트렌드 (최근 7일)</h3>
             <div className="grid grid-cols-2 gap-4">
               <TrendChart label="RMS Velocity (Y축)" unit="mm/s" data={velData}  color="#3b82f6"
                 warningLine={velTh  ? Number(velTh.warn_value)  : undefined}
@@ -330,8 +330,8 @@ export default function MotorDetailPage() {
         {/* 우측 사이드바 */}
         <div className="space-y-6">
           {/* 설비 정보 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">설비 정보</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">설비 정보</h3>
             <div className="space-y-3">
               {[
                 { label: '정격 RPM',  value: motor.rated_rpm       ? `${motor.rated_rpm} rpm`       : '—' },
@@ -342,8 +342,8 @@ export default function MotorDetailPage() {
                 { label: '위치',      value: motor.location ?? '—' },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">{item.label}</span>
-                  <span className="text-sm font-medium text-slate-700">{item.value}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-600">{item.label}</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -351,8 +351,8 @@ export default function MotorDetailPage() {
 
           {/* 센서 상태 */}
           {sensor && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">센서 상태</h3>
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">센서 상태</h3>
               <div className="space-y-3">
                 {[
                   { label: '시리얼',      value: sensor.serial_number },
@@ -363,8 +363,8 @@ export default function MotorDetailPage() {
                     ? new Date(sensor.last_seen_at).toLocaleString('ko-KR') : '—' },
                 ].map(item => (
                   <div key={item.label} className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">{item.label}</span>
-                    <span className="text-xs font-semibold text-slate-700">{item.value}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-600">{item.label}</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -372,10 +372,10 @@ export default function MotorDetailPage() {
           )}
 
           {/* 활성 알람 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">활성 알람</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">활성 알람</h3>
             {alarms.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">활성 알람 없음</p>
+              <p className="text-xs text-slate-400 dark:text-slate-600 text-center py-4">활성 알람 없음</p>
             ) : (
               <div className="space-y-3">
                 {alarms.map(alarm => (
@@ -384,10 +384,10 @@ export default function MotorDetailPage() {
                       alarm.severity === 'critical' ? 'bg-red-500' : 'bg-yellow-400'
                     }`} />
                     <div>
-                      <p className="text-xs font-medium text-slate-700">
+                      <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         {alarm.message ?? alarm.fault_type ?? '—'}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
+                      <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-0.5">
                         {new Date(alarm.triggered_at).toLocaleString('ko-KR')}
                       </p>
                     </div>
@@ -399,19 +399,19 @@ export default function MotorDetailPage() {
 
           {/* 최근 정비 이력 */}
           {maintenance.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-700">최근 정비</h3>
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">최근 정비</h3>
                 <Link href="/maintenance" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
               </div>
               <div className="space-y-3">
                 {maintenance.map(log => (
-                  <div key={log.id} className="border-l-2 border-blue-200 pl-3">
-                    <p className="text-xs font-medium text-slate-700">{log.work_type}</p>
+                  <div key={log.id} className="border-l-2 border-blue-200 dark:border-blue-800 pl-3">
+                    <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{log.work_type}</p>
                     {log.description && (
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">{log.description}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-500 mt-0.5 truncate">{log.description}</p>
                     )}
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-0.5">
                       {new Date(log.performed_at).toLocaleDateString('ko-KR')}
                       {log.performed_by_name && ` · ${log.performed_by_name}`}
                     </p>

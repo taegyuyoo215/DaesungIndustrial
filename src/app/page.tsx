@@ -140,20 +140,20 @@ function Widget({
   compact?:   boolean
 }) {
   return (
-    <div className={`h-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden ${className}`}>
-      {/* 헤더 — 드래그 핸들 */}
+    <div className={`h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col overflow-hidden ${className}`}>
+      {/* 헤더 — 드래그 핸들 (편집 모드에서만 grab 커서) */}
       <div
-        className={`widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200 border-l-[3px] ${ACCENT_CLS[accent]} shrink-0 cursor-grab active:cursor-grabbing select-none`}
+        className={`widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800 border-l-[3px] ${ACCENT_CLS[accent]} shrink-0 select-none`}
       >
         <div className="flex items-center gap-1.5">
           {/* 그립 아이콘 */}
-          <svg className="w-3 h-3 text-slate-300 shrink-0" viewBox="0 0 10 16" fill="currentColor">
+          <svg className="w-3 h-3 text-slate-300 dark:text-slate-700 shrink-0" viewBox="0 0 10 16" fill="currentColor">
             <circle cx="2" cy="2"  r="1.2"/><circle cx="8" cy="2"  r="1.2"/>
             <circle cx="2" cy="8"  r="1.2"/><circle cx="8" cy="8"  r="1.2"/>
             <circle cx="2" cy="14" r="1.2"/><circle cx="8" cy="14" r="1.2"/>
           </svg>
-          {icon && <span className="text-slate-400 text-sm leading-none">{icon}</span>}
-          <span className="text-xs font-semibold text-slate-600 tracking-wide">{title}</span>
+          {icon && <span className="text-slate-400 dark:text-slate-500 text-sm leading-none">{icon}</span>}
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 tracking-wide">{title}</span>
         </div>
         {/* 액션 영역: 드래그 이벤트 차단 */}
         {action && (
@@ -167,8 +167,6 @@ function Widget({
         )}
       </div>
       {/* 콘텐츠 */}
-      {/* compact=true(차트용): position:relative 기준점 제공, absolute inset-0 으로 TrendChart가 채움 */}
-      {/* compact=false: 일반 flex 흐름 */}
       <div className={`flex-1 min-h-0 relative overflow-hidden ${compact ? '' : 'flex flex-col p-4'}`}>
         {children}
       </div>
@@ -195,10 +193,10 @@ function MotorChip({
   const cls = selected
     ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
     : severity === 'critical'
-      ? 'bg-red-50 border-red-300 text-red-800 hover:bg-red-100'
+      ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800 text-red-800 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
       : severity === 'warning'
-        ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
-        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30'
+        : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
 
   return (
     <button
@@ -224,15 +222,15 @@ function MetricWidget({
   const isCrit = !offline && value >= crit
   const isWarn = !offline && !isCrit && value >= warn
 
-  const valCl = offline ? 'text-slate-300'
-              : isCrit  ? 'text-red-600'
-              : isWarn  ? 'text-amber-500'
-              : 'text-slate-800'
+  const valCl = offline ? 'text-slate-300 dark:text-slate-600'
+              : isCrit  ? 'text-red-600 dark:text-red-400'
+              : isWarn  ? 'text-amber-500 dark:text-amber-400'
+              : 'text-slate-800 dark:text-slate-100'
 
   const status = offline ? null
-    : isCrit ? { text: '임계', badge: 'bg-red-100 text-red-600',    bar: 'bg-red-500'     }
-    : isWarn ? { text: '주의', badge: 'bg-amber-100 text-amber-600', bar: 'bg-amber-400'   }
-    :          { text: '정상', badge: 'bg-emerald-50 text-emerald-600', bar: 'bg-emerald-500' }
+    : isCrit ? { text: '임계', badge: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',       bar: 'bg-red-500'     }
+    : isWarn ? { text: '주의', badge: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400', bar: 'bg-amber-400'   }
+    :          { text: '정상', badge: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' }
 
   // 게이지 범위: 0 ~ crit×1.25 (경보 위로 여유 공간 확보)
   const gaugeMax  = crit * 1.25
@@ -243,17 +241,17 @@ function MetricWidget({
   const deltaVal  = delta != null && Math.abs(delta) >= 0.01 ? delta : null
 
   return (
-    <div className={`h-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden border-l-[3px] ${ACCENT_CLS[accent]}`}>
+    <div className={`h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col overflow-hidden border-l-[3px] ${ACCENT_CLS[accent]}`}>
 
       {/* 드래그 핸들 헤더 */}
-      <div className="widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100 shrink-0 cursor-grab active:cursor-grabbing select-none">
+      <div className="widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-100 dark:border-slate-800 shrink-0 select-none">
         <div className="flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-slate-300 shrink-0" viewBox="0 0 10 16" fill="currentColor">
+          <svg className="w-3 h-3 text-slate-300 dark:text-slate-700 shrink-0" viewBox="0 0 10 16" fill="currentColor">
             <circle cx="2" cy="2"  r="1.2"/><circle cx="8" cy="2"  r="1.2"/>
             <circle cx="2" cy="8"  r="1.2"/><circle cx="8" cy="8"  r="1.2"/>
             <circle cx="2" cy="14" r="1.2"/><circle cx="8" cy="14" r="1.2"/>
           </svg>
-          <span className="text-xs font-semibold text-slate-600">{title}</span>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{title}</span>
         </div>
         {status && (
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${status.badge}`}>
@@ -269,34 +267,31 @@ function MetricWidget({
             {offline ? '—' : format(value)}
           </span>
           {unit && !offline && (
-            <span className="text-sm font-medium text-slate-400">{unit}</span>
+            <span className="text-sm font-medium text-slate-400 dark:text-slate-500">{unit}</span>
           )}
         </div>
         {!offline && deltaVal != null && (
-          <span className={`text-[10px] font-medium mt-1 ${deltaVal > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+          <span className={`text-[10px] font-medium mt-1 ${deltaVal > 0 ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
             {deltaVal > 0 ? '▲' : '▼'} {Math.abs(deltaVal) < 1 ? Math.abs(deltaVal).toFixed(2) : Math.abs(deltaVal).toFixed(1)}
-            <span className="text-slate-400 font-normal"> 24h 전 대비</span>
+            <span className="text-slate-400 dark:text-slate-600 font-normal"> 24h 전 대비</span>
           </span>
         )}
       </div>
 
       {/* 게이지 바 */}
       <div className="px-3 pb-3 shrink-0">
-        <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
-          {/* 주의 임계 마커 */}
-          <div className="absolute top-0 h-full w-0.5 bg-amber-300 z-10" style={{ left: `${warnPct}%` }} />
-          {/* 경보 임계 마커 */}
-          <div className="absolute top-0 h-full w-0.5 bg-red-300 z-10" style={{ left: `${critPct}%` }} />
-          {/* 값 바 */}
+        <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="absolute top-0 h-full w-0.5 bg-amber-300 dark:bg-amber-600 z-10" style={{ left: `${warnPct}%` }} />
+          <div className="absolute top-0 h-full w-0.5 bg-red-300 dark:bg-red-700 z-10" style={{ left: `${critPct}%` }} />
           <div
-            className={`h-full rounded-full transition-all duration-500 ${status?.bar ?? 'bg-slate-300'}`}
+            className={`h-full rounded-full transition-all duration-500 ${status?.bar ?? 'bg-slate-300 dark:bg-slate-600'}`}
             style={{ width: `${gaugePct}%` }}
           />
         </div>
         <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-slate-300">0</span>
-          <span className="text-[9px] text-amber-400">△ {warn}</span>
-          <span className="text-[9px] text-red-400">⚠ {crit}</span>
+          <span className="text-[9px] text-slate-300 dark:text-slate-700">0</span>
+          <span className="text-[9px] text-amber-400 dark:text-amber-600">△ {warn}</span>
+          <span className="text-[9px] text-red-400 dark:text-red-600">⚠ {crit}</span>
         </div>
       </div>
 
@@ -316,8 +311,8 @@ function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) 
   const rul      = diagnosis.rul_days
   const evidence = diagnosis.evidence
 
-  const rulColor = rul == null ? 'text-slate-300' : rul <= 7 ? 'text-red-600' : rul <= 30 ? 'text-amber-600' : 'text-emerald-600'
-  const rulBarCl = rul == null ? 'bg-slate-200'   : rul <= 7 ? 'bg-red-500'   : rul <= 30 ? 'bg-amber-500'   : 'bg-emerald-500'
+  const rulColor = rul == null ? 'text-slate-300 dark:text-slate-600' : rul <= 7 ? 'text-red-600 dark:text-red-400' : rul <= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+  const rulBarCl = rul == null ? 'bg-slate-200 dark:bg-slate-700'    : rul <= 7 ? 'bg-red-500'   : rul <= 30 ? 'bg-amber-500'   : 'bg-emerald-500'
   const rulMsg   = rul == null ? '' : rul <= 7 ? '즉시 조치 필요' : rul <= 30 ? '단기 정비 계획 수립 필요' : '정상 범위 내'
   const rulPct   = rul != null ? Math.min(100, Math.round((rul / 90) * 100)) : 0
 
@@ -327,41 +322,41 @@ function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto space-y-4" style={{ scrollbarWidth: 'thin' }}>
 
-      <p className="text-[10px] text-slate-400">
+      <p className="text-[10px] text-slate-400 dark:text-slate-600">
         {new Date(diagnosis.diagnosed_at).toLocaleString('ko-KR', {
           month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
         })}
       </p>
 
       {isNormal ? (
-        <div className="flex items-center gap-2.5 bg-emerald-50 rounded-lg px-3 py-2.5">
+        <div className="flex items-center gap-2.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-3 py-2.5">
           <span className="text-xl">🟢</span>
           <div>
-            <p className="text-sm font-semibold text-emerald-700">이상 없음 — 정상 상태</p>
-            <p className="text-xs text-emerald-600 mt-0.5">현재 측정값이 모든 임계값 이내입니다.</p>
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">이상 없음 — 정상 상태</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">현재 측정값이 모든 임계값 이내입니다.</p>
           </div>
         </div>
       ) : (
-        <div className={`rounded-lg px-3 py-2.5 ${isCrit ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+        <div className={`rounded-lg px-3 py-2.5 ${isCrit ? 'bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40' : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40'}`}>
           <div className="flex items-start justify-between gap-2 mb-2">
-            <p className="text-base font-bold text-slate-800">
+            <p className="text-base font-bold text-slate-800 dark:text-slate-100">
               {FAULT_LABELS[diagnosis.fault_type ?? ''] ?? diagnosis.fault_type ?? '알 수 없음'}
             </p>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${isCrit ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
               {isCrit ? '경보' : '주의'}
             </span>
           </div>
-          {desc && <p className="text-xs text-slate-600 leading-relaxed">{desc}</p>}
+          {desc && <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>}
         </div>
       )}
 
       {conf != null && (
         <div>
           <div className="flex justify-between mb-1.5">
-            <span className="text-xs text-slate-500">모델 신뢰도</span>
-            <span className="text-xs font-bold tabular-nums">{conf}%</span>
+            <span className="text-xs text-slate-500 dark:text-slate-500">모델 신뢰도</span>
+            <span className="text-xs font-bold tabular-nums dark:text-slate-300">{conf}%</span>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${isCrit ? 'bg-red-500' : isNormal ? 'bg-emerald-500' : 'bg-amber-500'}`}
               style={{ width: `${conf}%` }}
@@ -373,13 +368,13 @@ function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) 
       {rul != null && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-slate-500">잔여수명 (RUL)</span>
+            <span className="text-xs text-slate-500 dark:text-slate-500">잔여수명 (RUL)</span>
             <div className="flex items-baseline gap-1">
               <span className={`text-xl font-black tabular-nums ${rulColor}`}>{rul}</span>
-              <span className="text-xs text-slate-400">일</span>
+              <span className="text-xs text-slate-400 dark:text-slate-600">일</span>
             </div>
           </div>
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div className={`h-full rounded-full transition-all duration-700 ${rulBarCl}`} style={{ width: `${rulPct}%` }} />
           </div>
           <p className={`text-[11px] font-semibold mt-1.5 ${rulColor}`}>{rulMsg}</p>
@@ -388,17 +383,17 @@ function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) 
 
       {evidence?.metrics && evidence.metrics.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-600 mb-2">진단 근거</p>
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">진단 근거</p>
           <div className="space-y-2">
             {evidence.metrics.map((m, i) => (
               <div key={i} className="flex items-center justify-between">
-                <span className={`text-xs ${m.exceeded ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
+                <span className={`text-xs ${m.exceeded ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-500 dark:text-slate-500'}`}>
                   {m.exceeded ? '⚠ ' : ''}{m.label}
                 </span>
                 <div className="flex items-center gap-1.5 tabular-nums">
-                  <span className={`text-xs font-bold ${m.exceeded ? 'text-red-600' : 'text-slate-700'}`}>{m.value}</span>
-                  <span className="text-[10px] text-slate-300">/</span>
-                  <span className="text-[10px] text-slate-400">{m.threshold}</span>
+                  <span className={`text-xs font-bold ${m.exceeded ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>{m.value}</span>
+                  <span className="text-[10px] text-slate-300 dark:text-slate-700">/</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-600">{m.threshold}</span>
                 </div>
               </div>
             ))}
@@ -408,10 +403,10 @@ function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) 
 
       {!isNormal && actions && (
         <div>
-          <p className="text-xs font-semibold text-slate-600 mb-2">권장 조치</p>
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">권장 조치</p>
           <ol className="space-y-1.5">
             {actions.map((action, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+              <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <span className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${isCrit ? 'bg-red-500' : 'bg-amber-500'}`}>
                   {i + 1}
                 </span>
@@ -449,17 +444,17 @@ function TrendTabWidget({
   const dataMap  = { vel: velTrend, temp: tempTrend, kurt: kurtTrend }
 
   return (
-    <div className={`h-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden`}>
+    <div className={`h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col overflow-hidden`}>
 
       {/* 헤더 + 탭 */}
-      <div className={`widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200 border-l-[3px] ${tab.border} shrink-0 cursor-grab active:cursor-grabbing select-none`}>
+      <div className={`widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800 border-l-[3px] ${tab.border} shrink-0 select-none`}>
         <div className="flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-slate-300 shrink-0" viewBox="0 0 10 16" fill="currentColor">
+          <svg className="w-3 h-3 text-slate-300 dark:text-slate-700 shrink-0" viewBox="0 0 10 16" fill="currentColor">
             <circle cx="2" cy="2"  r="1.2"/><circle cx="8" cy="2"  r="1.2"/>
             <circle cx="2" cy="8"  r="1.2"/><circle cx="8" cy="8"  r="1.2"/>
             <circle cx="2" cy="14" r="1.2"/><circle cx="8" cy="14" r="1.2"/>
           </svg>
-          <span className="text-xs font-semibold text-slate-600 tracking-wide">추이 차트 (최근 1h)</span>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 tracking-wide">추이 차트 (최근 1h)</span>
         </div>
 
         {/* 탭 버튼 — 드래그 이벤트 차단 */}
@@ -475,7 +470,7 @@ function TrendTabWidget({
               className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors ${
                 active === t.key
                   ? t.activeCls
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
               {t.label}
@@ -504,12 +499,13 @@ function TrendTabWidget({
 // ── 위젯 대시보드 ─────────────────────────────────────────
 
 function MotorDashboard({
-  selectedStatus, detail, trendData, isLoading,
+  selectedStatus, detail, trendData, isLoading, isEditing,
 }: {
   selectedStatus: MotorStatus | undefined
   detail:         MotorDetailData | undefined
   trendData:      TrendRow[]
   isLoading:      boolean
+  isEditing:      boolean
 }) {
   const [layout, setLayout] = useState<LayoutItem[]>(DEFAULT_LAYOUT)
   const [mounted, setMounted] = useState(false)
@@ -532,8 +528,8 @@ function MotorDashboard({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64 gap-2 text-slate-400 text-sm">
-        <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-64 gap-2 text-slate-400 dark:text-slate-600 text-sm">
+        <span className="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 border-t-slate-600 dark:border-t-slate-400 rounded-full animate-spin" />
         데이터 불러오는 중...
       </div>
     )
@@ -541,7 +537,7 @@ function MotorDashboard({
 
   if (!detail) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
+      <div className="flex items-center justify-center h-64 text-slate-400 dark:text-slate-600 text-sm">
         모터 데이터를 불러올 수 없습니다
       </div>
     )
@@ -579,20 +575,28 @@ function MotorDashboard({
 
   return (
     <div className="pb-4">
-      {/* 레이아웃 초기화 버튼 */}
-      <div className="flex justify-end mb-2 pr-1">
-        <button
-          onClick={resetLayout}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 rounded hover:bg-slate-100"
-          title="위젯 배치를 기본값으로 초기화"
-        >
-          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M2 8a6 6 0 1 0 1.5-4" strokeLinecap="round"/>
-            <path d="M2 4v4h4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          레이아웃 초기화
-        </button>
-      </div>
+      {/* 편집 모드 툴바 */}
+      {isEditing && (
+        <div className="flex items-center justify-between mb-3 px-1 py-2 rounded-lg border border-cyan-500/30 bg-cyan-500/5 dark:bg-cyan-500/10">
+          <div className="flex items-center gap-2 text-xs text-cyan-600 dark:text-cyan-400 font-medium pl-2">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
+              <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+            </svg>
+            위젯을 드래그하여 이동하거나, 모서리를 드래그하여 크기를 조절하세요
+          </div>
+          <button
+            onClick={resetLayout}
+            className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors px-2 py-1 rounded hover:bg-white/60 dark:hover:bg-slate-800"
+          >
+            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 8a6 6 0 1 0 1.5-4" strokeLinecap="round"/>
+              <path d="M2 4v4h4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            초기화
+          </button>
+        </div>
+      )}
 
       <RGL
         layout={layout}
@@ -602,7 +606,9 @@ function MotorDashboard({
         containerPadding={[0, 0]}
         onLayoutChange={handleLayoutChange}
         draggableHandle=".widget-drag-handle"
-        resizeHandles={['se']}
+        resizeHandles={['s', 'w', 'e', 'n', 'sw', 'se', 'nw', 'ne']}
+        isDraggable={isEditing}
+        isResizable={isEditing}
       >
 
         {/* ─ 모터 상태 */}
@@ -621,12 +627,12 @@ function MotorDashboard({
               {/* 모터명 + 상태 */}
               <div>
                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                  <h2 className="text-sm font-bold text-slate-900">{motor.name}</h2>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{motor.name}</h2>
                   <StatusBadge status={isOffline ? 'offline' : (m?.severity ?? 'normal')} />
                 </div>
-                {motorMeta && <p className="text-[11px] text-slate-400">{motorMeta}</p>}
+                {motorMeta && <p className="text-[11px] text-slate-400 dark:text-slate-500">{motorMeta}</p>}
                 {latestMeasurement?.time && (
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">
                     마지막 측정:{' '}
                     {new Date(latestMeasurement.time).toLocaleString('ko-KR', {
                       month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -636,37 +642,37 @@ function MotorDashboard({
               </div>
 
               {/* 센서 정보 */}
-              <div className="border-t border-slate-100 pt-2">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">센서 정보</p>
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-2">
+                <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-wide mb-1">센서 정보</p>
                 {sensor ? (
                   <div className="space-y-0.5">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">시리얼</span>
-                      <span className="font-mono text-slate-700">{sensor.serial_number}</span>
+                      <span className="text-slate-500 dark:text-slate-500">시리얼</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">{sensor.serial_number}</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">Modbus 주소</span>
-                      <span className="font-mono text-slate-700">{sensor.modbus_addr}</span>
+                      <span className="text-slate-500 dark:text-slate-500">Modbus 주소</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">{sensor.modbus_addr}</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-slate-400">연결된 센서 없음</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-600">연결된 센서 없음</p>
                 )}
               </div>
 
               {/* 정비 이력 요약 */}
-              <div className="border-t border-slate-100 pt-2">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">정비 이력</p>
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-2">
+                <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-wide mb-1">정비 이력</p>
                 {maintenanceLogs.length === 0 ? (
-                  <p className="text-[11px] text-slate-400">정비 기록 없음</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-600">정비 기록 없음</p>
                 ) : (
                   <div className="space-y-1">
                     {maintenanceLogs.slice(0, 2).map(log => (
                       <div key={log.id} className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400 shrink-0">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-600 shrink-0">
                           {new Date(log.performed_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}
                         </span>
-                        <p className="text-[11px] text-slate-700 truncate">{log.description}</p>
+                        <p className="text-[11px] text-slate-700 dark:text-slate-300 truncate">{log.description}</p>
                       </div>
                     ))}
                     {maintenanceLogs.length > 2 && (
@@ -701,16 +707,16 @@ function MotorDashboard({
                 </div>
               ) : (
                 <>
-                  <p className="text-[10px] text-slate-400 mb-2 shrink-0">
-                    총 <span className="font-semibold text-slate-700">{activeCount.length}</span>건 활성
+                  <p className="text-[10px] text-slate-400 dark:text-slate-600 mb-2 shrink-0">
+                    총 <span className="font-semibold text-slate-700 dark:text-slate-300">{activeCount.length}</span>건 활성
                   </p>
                   <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
                     {activeCount.map(alarm => (
-                      <div key={alarm.id} className={`flex items-start gap-2 px-2 py-1.5 rounded-lg ${alarm.severity === 'critical' ? 'bg-red-50' : 'bg-amber-50'}`}>
+                      <div key={alarm.id} className={`flex items-start gap-2 px-2 py-1.5 rounded-lg ${alarm.severity === 'critical' ? 'bg-red-50 dark:bg-red-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}`}>
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-px ${alarm.severity === 'critical' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
                           {alarm.severity === 'critical' ? '경보' : '주의'}
                         </span>
-                        <p className="text-xs text-slate-700 leading-relaxed">{alarm.message ?? '알람 발생'}</p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{alarm.message ?? '알람 발생'}</p>
                       </div>
                     ))}
                   </div>
@@ -773,6 +779,7 @@ function MotorDashboard({
 export default function DashboardPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
 
   const { data: motorRes, mutate: mutateMotors } =
     useSWR<ApiResponse<MotorStatus[]>>('/api/motors', fetcher, {
@@ -828,18 +835,45 @@ export default function DashboardPage() {
       {/* ── 헤더 */}
       <div className="flex items-center justify-between gap-2 mb-3 shrink-0 flex-wrap gap-y-1.5">
         <div className="flex items-center gap-3 flex-wrap gap-y-1.5">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">대시보드</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">대시보드</h1>
           <div className="flex items-center gap-1.5">
             <StatChip label="전체"  value={motors.length} unit="대" dot="bg-slate-400" />
             {critCount > 0 && <StatChip label="경보" value={critCount} unit="대" dot="bg-red-500" />}
             {warnCount > 0 && <StatChip label="주의" value={warnCount} unit="대" dot="bg-amber-400" />}
           </div>
         </div>
-        <span className="text-xs text-slate-400">
-          {lastUpdated
-            ? `업데이트 ${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-            : '업데이트 중...'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-400 dark:text-slate-600">
+            {lastUpdated
+              ? `업데이트 ${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+              : '업데이트 중...'}
+          </span>
+          {/* 편집 / 완료 버튼 */}
+          <button
+            onClick={() => setIsEditing(e => !e)}
+            className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border transition-all ${
+              isEditing
+                ? 'bg-cyan-500 dark:bg-cyan-500 text-white border-cyan-500 shadow-sm shadow-cyan-500/30'
+                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            {isEditing ? (
+              <>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M2 8l4 4 8-8"/>
+                </svg>
+                완료
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 2a1.5 1.5 0 0 1 3 3L5 14H2v-3L11 2z"/>
+                </svg>
+                편집
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ── 모터 선택 칩 */}
@@ -874,6 +908,7 @@ export default function DashboardPage() {
             detail={detail}
             trendData={trendData}
             isLoading={detailLoading}
+            isEditing={isEditing}
           />
         )}
       </div>
@@ -888,11 +923,11 @@ function StatChip({ label, value, unit, dot }: {
   label: string; value: number; unit: string; dot: string
 }) {
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700">
       <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="text-sm font-bold text-slate-800">{value}</span>
-      <span className="text-xs text-slate-400">{unit}</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{value}</span>
+      <span className="text-xs text-slate-400 dark:text-slate-600">{unit}</span>
     </div>
   )
 }

@@ -2,47 +2,97 @@
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
 
+/* Tailwind v4 class-based dark mode */
+@variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #f8fafc;
+  --background: #f1f5f9;
   --foreground: #0f172a;
+}
+
+.dark {
+  --background: #0a0f1e;
+  --foreground: #e2e8f0;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  transition: background-color 0.2s, color 0.2s;
 }
 
-/* react-grid-layout 리사이즈 핸들 커스텀 스타일 */
+/* 그립 아이콘: 기본 숨김, 편집 모드에서만 표시 */
+.widget-drag-handle svg:first-child {
+  display: none;
+}
+.react-grid-item.react-draggable .widget-drag-handle svg:first-child {
+  display: block;
+}
+
+/* 편집 모드일 때만 드래그 핸들 활성화 */
+.react-grid-item.react-draggable .widget-drag-handle {
+  cursor: grab;
+}
+.react-grid-item.react-draggable .widget-drag-handle:active {
+  cursor: grabbing;
+}
+/* react-grid-layout 리사이즈 핸들 — 8방향 (커서만, 시각 표시 없음) */
 .react-resizable-handle {
   position: absolute;
-  width: 20px;
-  height: 20px;
-  bottom: 0;
-  right: 0;
-  cursor: se-resize;
   opacity: 0;
-  transition: opacity 0.15s;
-}
-.react-resizable-handle::after {
-  content: '';
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid #94a3b8;
-  border-bottom: 2px solid #94a3b8;
-  border-radius: 1px;
-}
-.react-grid-item:hover .react-resizable-handle,
-.react-grid-item.resizing .react-resizable-handle {
-  opacity: 1;
+  z-index: 10;
 }
 
-/* 드래그 중 위젯 플레이스홀더 스타일 */
+/* ── 모서리 핸들 ── */
+.react-resizable-handle-se,
+.react-resizable-handle-sw,
+.react-resizable-handle-ne,
+.react-resizable-handle-nw {
+  width: 24px;
+  height: 24px;
+}
+.react-resizable-handle-se { bottom: 0; right: 0; cursor: se-resize; }
+.react-resizable-handle-sw { bottom: 0; left:  0; cursor: sw-resize; }
+.react-resizable-handle-ne { top:    0; right: 0; cursor: ne-resize; }
+.react-resizable-handle-nw { top:    0; left:  0; cursor: nw-resize; }
+
+/* ── 변 핸들 ── */
+.react-resizable-handle-s { width: 100%; height: 10px; bottom: 0; left: 0; cursor: s-resize; }
+.react-resizable-handle-n { width: 100%; height: 10px; top:    0; left: 0; cursor: n-resize; }
+.react-resizable-handle-e { width: 10px; height: 100%; right: 0; top: 0; cursor: e-resize; }
+.react-resizable-handle-w { width: 10px; height: 100%; left:  0; top: 0; cursor: w-resize; }
+
+/* ── 편집 모드 — 위젯 모서리 하이라이트 (gradient 트릭) ── */
+.react-grid-item.react-draggable::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    /* ┌ top-left */
+    linear-gradient(#06b6d4, #06b6d4) top    left  / 2px 18px no-repeat,
+    linear-gradient(#06b6d4, #06b6d4) top    left  / 18px 2px no-repeat,
+    /* ┐ top-right */
+    linear-gradient(#06b6d4, #06b6d4) top    right / 2px 18px no-repeat,
+    linear-gradient(#06b6d4, #06b6d4) top    right / 18px 2px no-repeat,
+    /* └ bottom-left */
+    linear-gradient(#06b6d4, #06b6d4) bottom left  / 2px 18px no-repeat,
+    linear-gradient(#06b6d4, #06b6d4) bottom left  / 18px 2px no-repeat,
+    /* ┘ bottom-right */
+    linear-gradient(#06b6d4, #06b6d4) bottom right / 2px 18px no-repeat,
+    linear-gradient(#06b6d4, #06b6d4) bottom right / 18px 2px no-repeat;
+}
+
+/* 드래그 플레이스홀더 */
 .react-grid-item.react-grid-placeholder {
   background: #3b82f6;
   opacity: 0.1;
   border-radius: 12px;
   border: 2px dashed #3b82f6;
+}
+.dark .react-grid-item.react-grid-placeholder {
+  background: #06b6d4;
+  border-color: #06b6d4;
 }

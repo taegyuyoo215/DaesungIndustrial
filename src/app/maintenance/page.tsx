@@ -11,15 +11,15 @@ import type { MaintenanceLog, MotorStatus, ApiResponse } from '@/types'
 const WORK_TYPES = ['베어링 교체', '오정렬 수정', '윤활 보충', '정기 점검', '부품 교체', '기타']
 
 const workTypeColors: Record<string, string> = {
-  '베어링 교체': 'bg-red-50 text-red-700 border-red-200',
+  '베어링 교체': 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200',
   '오정렬 수정': 'bg-orange-50 text-orange-700 border-orange-200',
   '윤활 보충':   'bg-blue-50 text-blue-700 border-blue-200',
-  '정기 점검':   'bg-slate-50 text-slate-600 border-slate-200',
+  '정기 점검':   'bg-slate-50 dark:bg-[#0a0f1e] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800',
   '부품 교체':   'bg-purple-50 text-purple-700 border-purple-200',
 }
 
 function WorkTypeBadge({ type }: { type: string }) {
-  const style = workTypeColors[type] ?? 'bg-slate-50 text-slate-600 border-slate-200'
+  const style = workTypeColors[type] ?? 'bg-slate-50 dark:bg-[#0a0f1e] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
   return (
     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${style}`}>
       {type}
@@ -84,11 +84,11 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
         {/* 모달 헤더 */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-900">정비 기록 추가</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">정비 기록 추가</h2>
+          <button onClick={onClose} className="text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400 text-xl leading-none">×</button>
         </div>
 
         {/* 모달 본문 */}
@@ -99,7 +99,7 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
             <select
               value={motorId}
               onChange={e => setMotorId(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
             >
               <option value="">모터 선택...</option>
               {motors.map(m => (
@@ -118,8 +118,8 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
                   onClick={() => setWorkType(type)}
                   className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                     workType === type
-                      ? (workTypeColors[type] ?? 'bg-slate-900 text-white border-slate-900')
-                      : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                      ? (workTypeColors[type] ?? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-slate-100')
+                      : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/30'
                   }`}
                 >
                   {type}
@@ -136,7 +136,7 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
               onChange={e => setDescription(e.target.value)}
               rows={3}
               placeholder="정비 내용을 상세히 입력해주세요..."
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+              className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700 resize-none"
             />
           </div>
 
@@ -148,7 +148,7 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
                 type="datetime-local"
                 value={performedAt}
                 onChange={e => setPerformedAt(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
               />
             </div>
             <div>
@@ -157,7 +157,7 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
                 type="datetime-local"
                 value={nextDueAt}
                 onChange={e => setNextDueAt(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
               />
             </div>
           </div>
@@ -174,7 +174,7 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
               </button>
             </div>
             {parts.length === 0 ? (
-              <p className="text-xs text-slate-400 py-2">교체 부품이 없으면 비워두세요.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-600 py-2">교체 부품이 없으면 비워두세요.</p>
             ) : (
               <div className="space-y-2">
                 {parts.map((part, i) => (
@@ -184,14 +184,14 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
                       value={part.name}
                       onChange={e => updatePart(i, 'name', e.target.value)}
                       placeholder="부품명 (예: 6206 베어링)"
-                      className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
                     />
                     <input
                       type="number"
                       value={part.qty}
                       min={1}
                       onChange={e => updatePart(i, 'qty', Number(e.target.value))}
-                      className="w-16 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="w-16 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-cyan-700"
                     />
                     <button
                       onClick={() => removePart(i)}
@@ -206,17 +206,17 @@ function AddMaintenanceModal({ motors, onClose, onSaved }: AddModalProps) {
           </div>
 
           {error && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
         </div>
 
         {/* 모달 푸터 */}
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800/60 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-100"
+            className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             취소
           </button>
@@ -271,7 +271,7 @@ export default function MaintenancePage() {
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">정비 이력</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">정비 이력</h1>
           <p className="text-sm text-slate-500 mt-1">총 {total}건</p>
         </div>
         <button
@@ -282,10 +282,10 @@ export default function MaintenancePage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800">
               {['정비 일시', '모터', '유형', '내용', '담당자', '다음 예정', ''].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   {h}
@@ -300,12 +300,12 @@ export default function MaintenancePage() {
               <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400 text-sm">정비 이력이 없습니다</td></tr>
             ) : (
               logs.map(log => (
-                <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
-                  <td className="px-5 py-4 text-sm text-slate-700 whitespace-nowrap">
+                <tr key={log.id} className="border-t border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                  <td className="px-5 py-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
                     {new Date(log.performed_at).toLocaleDateString('ko-KR')}
                   </td>
                   <td className="px-5 py-4">
-                    <Link href={`/motors/${log.motor_id}`} className="text-sm font-semibold text-slate-800 hover:underline">
+                    <Link href={`/motors/${log.motor_id}`} className="text-sm font-semibold text-slate-800 dark:text-slate-200 hover:underline">
                       {log.motor_name}
                     </Link>
                   </td>
@@ -313,17 +313,17 @@ export default function MaintenancePage() {
                     <WorkTypeBadge type={log.work_type} />
                   </td>
                   <td className="px-5 py-4">
-                    <p className="text-sm text-slate-600 max-w-xs truncate">{log.description ?? '—'}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-xs truncate">{log.description ?? '—'}</p>
                     {log.parts_replaced && log.parts_replaced.length > 0 && (
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-400 dark:text-slate-600 mt-0.5">
                         교체: {log.parts_replaced.map(p => `${p.name} ×${p.qty}`).join(', ')}
                       </p>
                     )}
                   </td>
-                  <td className="px-5 py-4 text-sm text-slate-600">
+                  <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-400">
                     {log.performed_by_name ?? '—'}
                   </td>
-                  <td className="px-5 py-4 text-sm text-slate-600 whitespace-nowrap">
+                  <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
                     {log.next_due_at
                       ? new Date(log.next_due_at).toLocaleDateString('ko-KR')
                       : '—'}
@@ -339,7 +339,7 @@ export default function MaintenancePage() {
           </tbody>
         </table>
 
-        <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
           <p className="text-xs text-slate-400">총 {total}건</p>
           <div className="flex gap-1">
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
@@ -347,7 +347,7 @@ export default function MaintenancePage() {
                 key={p}
                 onClick={() => setPage(p)}
                 className={`w-8 h-8 text-sm rounded-lg ${
-                  p === page ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'
+                  p === page ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >{p}</button>
             ))}

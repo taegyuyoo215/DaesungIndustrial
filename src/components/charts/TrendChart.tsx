@@ -41,7 +41,7 @@ export default function TrendChart({
   const lineChart = (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
         <XAxis
           dataKey="time"
           tick={{ fontSize: 9 }}
@@ -80,7 +80,7 @@ export default function TrendChart({
     return (
       <div className="absolute inset-0">
         {data.length === 0 ? (
-          <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+          <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600 text-xs">
             데이터 없음
           </div>
         ) : lineChart}
@@ -90,13 +90,13 @@ export default function TrendChart({
 
   // ── 일반 모드: 자체 카드 래퍼 포함
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col h-full">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 flex flex-col h-full">
       <div className="flex items-center justify-between mb-3 shrink-0">
-        <p className="text-sm font-semibold text-slate-700">{label}</p>
-        <span className="text-xs text-slate-400">{unit}</span>
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{label}</p>
+        <span className="text-xs text-slate-400 dark:text-slate-600">{unit}</span>
       </div>
       {data.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
+        <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-slate-600 text-xs">
           데이터 없음
         </div>
       ) : (

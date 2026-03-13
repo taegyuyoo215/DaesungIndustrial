@@ -43,7 +43,7 @@ export async function POST() {
         lm.temperature_c::text AS temp,
         lm.kurtosis_y::text  AS kurt_y
       FROM sensors s
-      JOIN motors m ON m.id = s.motor_id AND m.status = 'active'
+      JOIN motors m ON m.id = s.motor_id
       LEFT JOIN LATERAL (
         SELECT vel_y_rms, temperature_c, kurtosis_y
         FROM measurements
