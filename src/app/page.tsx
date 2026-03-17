@@ -11,7 +11,7 @@ import StatusBadge from '@/components/StatusBadge'
 import { fetcher } from '@/lib/fetcher'
 import type {
   MotorStatus, Motor, Measurement, DiagnosisResult,
-  Alarm, MaintenanceLog, ApiResponse,
+  Alarm, MaintenanceLog, ApiResponse, BearingFreqs, FftSpectrum,
 } from '@/types'
 
 const RGL = WidthProvider(GridLayout)
@@ -299,9 +299,244 @@ function MetricWidget({
   )
 }
 
+// ── FFT 요약 (AI 진단 위젯 내부) ──────────────────────────
+
+interface FftApiData {
+  bearingFreqs: BearingFreqs
+  spectra: FftSpectrum[]
+  faultTrend: import('@/types').FftTrendItem[]
+}
+
+const FAULT_COLORS_DASH: Record<string, string> = {
+  '1X': '#3b82f6', '2X': '#8b5cf6', 'BPFO': '#ef4444', 'BPFI': '#f97316',
+}
+const TREND_ICON_DASH  = { rising: '↑', stable: '→', falling: '↓' } as const
+const TREND_COLOR_DASH = { rising: 'text-amber-400', stable: 'text-slate-500', falling: 'text-emerald-400' } as const
+
+function FftSummaryInDiagnosis({ motorId }: { motorId: number }) {
+  const { data, isLoading } = useSWR<FftApiData>(
+    `/api/fft?motor_id=${motorId}&axis=x&limit=3`,  // limit=3 for trend
+    fetcher,
+    { refreshInterval: 60_000, revalidateOnFocus: false }
+  )
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-1.5 py-1">
+        <span className="w-3 h-3 border border-cyan-500/60 border-t-cyan-500 rounded-full animate-spin shrink-0" />
+        <span className="text-[10px] text-slate-500">FFT 불러오는 중...</span>
+      </div>
+    )
+  }
+
+  const spec      = data?.spectra[0]
+  const freqs     = data?.bearingFreqs
+  const trendData = data?.faultTrend ?? []
+
+  if (!spec || !freqs) {
+    return <p className="text-[10px] text-slate-500 py-1">FFT 데이터 없음</p>
+  }
+
+  // 표시할 주요 4개 항목 (trend 데이터 우선, 없으면 순간값으로 fallback)
+  const TOL = 5
+  const ampAt = (target: number) => {
+    if (!spec.freq_bins.length) return 0
+    const idx = spec.freq_bins.reduce((best, f, i) =>
+      Math.abs(f - target) < Math.abs(spec.freq_bins[best] - target) ? i : best, 0)
+    return Math.abs(spec.freq_bins[idx] - target) <= TOL ? spec.amp_bins[idx] : 0
+  }
+
+  const KEY_LABELS = ['1X', '2X', 'BPFO', 'BPFI']
+  const keyItems = KEY_LABELS.map(lbl => {
+    const trendItem = trendData.find(t => t.label === lbl)
+    const freq = lbl === '1X' ? freqs.f1x : lbl === '2X' ? freqs.f2x
+               : lbl === 'BPFO' ? freqs.bpfo : freqs.bpfi
+    const amp  = trendItem?.currentAmp ?? ampAt(freq)
+    const warn = trendItem?.warnThreshold ?? (lbl === '1X' ? 3.0 : lbl === '2X' ? 2.5 : 1.0)
+    return { label: lbl, freq, amp, warn, trendItem }
+  })
+
+  // 종합 FFT 상태
+  const overallFftStat =
+    trendData.some(t => t.status === 'warning')       ? 'warning'
+    : trendData.some(t => t.status === 'early_warning') ? 'early_warning'
+    : 'normal'
+
+  // 상황 설명 문구 생성
+  const FAULT_KO: Record<string, string> = {
+    '1X': '불평형', '2X': '오정렬',
+    'BPFO': '베어링 외륜 결함', 'BPFI': '베어링 내륜 결함',
+    'BSF': '볼 결함', 'FTF': '케이지 결함',
+  }
+  const summaryDesc = (() => {
+    if (overallFftStat === 'normal') {
+      return { text: '모든 결함 주파수에서 이상 신호가 감지되지 않았습니다.', color: 'text-emerald-500 dark:text-emerald-400' }
+    }
+    // 가장 심각한 항목 하나 선택
+    const dominant = trendData
+      .filter(t => t.status !== 'normal')
+      .sort((a, b) => {
+        const r = { warning: 0, early_warning: 1, normal: 2 }
+        return r[a.status] - r[b.status]
+      })[0]
+    if (!dominant) return null
+    const name = FAULT_KO[dominant.label] ?? dominant.label
+    if (dominant.status === 'warning') {
+      return {
+        text: `${dominant.label}(${dominant.freq}Hz) 진폭 ${dominant.currentAmp.toFixed(3)} mm/s — 경보 임계값(${dominant.warnThreshold} mm/s)을 초과했습니다. ${name} 의심.`,
+        color: 'text-red-400',
+      }
+    }
+    const dir = dominant.rateOfChange >= 0 ? `+${dominant.rateOfChange}%` : `${dominant.rateOfChange}%`
+    return {
+      text: `${dominant.label}(${dominant.freq}Hz) 진폭이 ${dir} 상승 추세입니다. raw 지표는 정상이나 ${name} 조기 징후로 판단됩니다.`,
+      color: 'text-amber-400',
+    }
+  })()
+
+  // 미니 SVG 스펙트럼
+  const W = 100, H = 38
+  const maxAmp = Math.max(...spec.amp_bins, 0.01)
+  const faultFreqColors: [number, string][] = [
+    [freqs.f1x, '#3b82f6'], [freqs.f2x, '#8b5cf6'],
+    [freqs.bpfo, '#ef4444'], [freqs.bpfi, '#f97316'],
+  ]
+
+  return (
+    <div className="space-y-2.5">
+      {/* 헤더 + FFT 종합 상태 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">FFT 분석 요약</p>
+          {overallFftStat === 'early_warning' && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400">
+              조기경보
+            </span>
+          )}
+          {overallFftStat === 'warning' && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-900/40 text-red-400">
+              경보
+            </span>
+          )}
+        </div>
+        <Link
+          href="/fft"
+          className="text-[10px] text-blue-500 dark:text-blue-400 hover:underline"
+          onMouseDown={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+        >
+          전체 분석 →
+        </Link>
+      </div>
+
+      {/* 상황 설명 */}
+      {summaryDesc && (
+        <p className={`text-[11px] leading-relaxed ${summaryDesc.color}`}>
+          {summaryDesc.text}
+        </p>
+      )}
+
+      {/* 미니 스펙트럼 */}
+      <div className="rounded-lg bg-slate-100 dark:bg-slate-800/60 px-2 pt-1.5 pb-1">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-14">
+          {[0.33, 0.66].map(r => (
+            <line key={r} x1="0" y1={H * r} x2={W} y2={H * r}
+              stroke="currentColor" strokeWidth="0.4" className="text-slate-300 dark:text-slate-700" />
+          ))}
+          {spec.freq_bins.map((freq, i) => {
+            const barH = Math.max((spec.amp_bins[i] / maxAmp) * (H - 2), 0.5)
+            const x    = i * (W / spec.freq_bins.length) + 0.3
+            const bW   = Math.max(W / spec.freq_bins.length - 0.8, 0.5)
+            const y    = H - barH
+            let color = '#475569'; let opacity = 0.55
+            for (const [faultFreq, faultColor] of faultFreqColors) {
+              if (Math.abs(freq - faultFreq) <= TOL) { color = faultColor; opacity = 1; break }
+            }
+            return <rect key={i} x={x} y={y} width={bW} height={barH} fill={color} fillOpacity={opacity} rx="0.2" />
+          })}
+        </svg>
+        <div className="flex justify-between">
+          {['0', '250', '500', '750', '1k'].map(f => (
+            <span key={f} className="text-[8px] text-slate-400 dark:text-slate-600">{f}Hz</span>
+          ))}
+        </div>
+      </div>
+
+      {/* 결함 주파수 진폭 + 추세 */}
+      <div className="space-y-1.5">
+        {keyItems.map(({ label, freq, amp, warn, trendItem }) => {
+          const exceeded = amp >= warn
+          const isEarlyWarn = trendItem?.status === 'early_warning'
+          const pct = Math.min(100, (amp / (warn * 1.5)) * 100)
+          const color = FAULT_COLORS_DASH[label] ?? '#94a3b8'
+          const trendIcon  = trendItem ? TREND_ICON_DASH[trendItem.trend]  : null
+          const trendColor = trendItem ? TREND_COLOR_DASH[trendItem.trend] : ''
+          return (
+            <div key={label} className="flex items-center gap-2">
+              <span className="text-[10px] font-bold w-8 shrink-0" style={{ color }}>{label}</span>
+              <span className="text-[9px] text-slate-400 dark:text-slate-600 w-10 shrink-0 tabular-nums">{freq}Hz</span>
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%`, backgroundColor: exceeded ? color : isEarlyWarn ? '#f59e0b' : '#475569' }}
+                />
+              </div>
+              {/* 추세 화살표 */}
+              {trendIcon && (
+                <span className={`text-[10px] font-bold w-3 shrink-0 ${trendColor}`}>{trendIcon}</span>
+              )}
+              <span className={`text-[10px] font-mono font-semibold w-11 text-right shrink-0
+                ${exceeded ? 'text-red-400'
+                  : isEarlyWarn ? 'text-amber-400'
+                  : 'text-slate-400 dark:text-slate-600'}`}>
+                {amp.toFixed(3)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* RPM 정보 */}
+      <p className="text-[9px] text-slate-400 dark:text-slate-600 tabular-nums">
+        기준 RPM: {freqs.rpm}
+        {spec.measured_at && (
+          <> · {new Date(spec.measured_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</>
+        )}
+      </p>
+    </div>
+  )
+}
+
 // ── AI 진단 콘텐츠 ─────────────────────────────────────────
 
-function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) {
+function DiagnosisContent({
+  diagnosis, motorId, motorRunning, latestMeasurement,
+}: {
+  diagnosis: DiagnosisResult | null
+  motorId?: number
+  motorRunning?: boolean | null
+  latestMeasurement?: Measurement | null
+}) {
+  // 모터 정지 중이면 정지 상태 표시
+  if (motorRunning === false) {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-4" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg px-3 py-2.5">
+          <span className="text-xl">⏹</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">모터 정지 중</p>
+            <p className="text-xs text-slate-400 dark:text-slate-600 mt-0.5">정지 상태에서는 진단이 수행되지 않습니다.</p>
+          </div>
+        </div>
+        {motorId != null && (
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+            <FftSummaryInDiagnosis motorId={motorId} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (!diagnosis)
     return <p className="text-sm text-slate-400">진단 데이터 없음</p>
 
@@ -401,6 +636,30 @@ function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) 
         </div>
       )}
 
+      {/* raw 지표 배지 (crest / hf_accel) */}
+      {latestMeasurement && (
+        <div className="flex flex-wrap gap-1.5">
+          {(() => {
+            const crest = Number(latestMeasurement.crest_x ?? 0)
+            const hf    = Number(latestMeasurement.hf_accel_x_rms ?? 0)
+            const items = []
+            if (crest > 0) {
+              const s = crest >= 4.0 ? { cls: 'bg-red-900/40 text-red-400', label: `Crest ${crest.toFixed(2)} ⚠` }
+                      : crest >= 2.5 ? { cls: 'bg-amber-900/30 text-amber-400', label: `Crest ${crest.toFixed(2)} △` }
+                      :                { cls: 'bg-slate-800 text-slate-500', label: `Crest ${crest.toFixed(2)}` }
+              items.push(<span key="crest" className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${s.cls}`}>{s.label}</span>)
+            }
+            if (hf > 0) {
+              const s = hf >= 3.0 ? { cls: 'bg-red-900/40 text-red-400', label: `HF ${hf.toFixed(2)}g ⚠` }
+                      : hf >= 1.5 ? { cls: 'bg-amber-900/30 text-amber-400', label: `HF ${hf.toFixed(2)}g △` }
+                      :             { cls: 'bg-slate-800 text-slate-500', label: `HF ${hf.toFixed(2)}g` }
+              items.push(<span key="hf" className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${s.cls}`}>{s.label}</span>)
+            }
+            return items
+          })()}
+        </div>
+      )}
+
       {!isNormal && actions && (
         <div>
           <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">권장 조치</p>
@@ -414,6 +673,13 @@ function DiagnosisContent({ diagnosis }: { diagnosis: DiagnosisResult | null }) 
               </li>
             ))}
           </ol>
+        </div>
+      )}
+
+      {/* FFT 분석 요약 */}
+      {motorId != null && (
+        <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+          <FftSummaryInDiagnosis motorId={motorId} />
         </div>
       )}
 
@@ -765,7 +1031,12 @@ function MotorDashboard({
         {/* ─ AI 진단 */}
         <div key="ai" className="h-full">
           <Widget title="AI 진단" accent="emerald" icon="✦">
-            <DiagnosisContent diagnosis={latestDiagnosis} />
+            <DiagnosisContent
+              diagnosis={latestDiagnosis}
+              motorId={motor.id}
+              motorRunning={latestMeasurement?.motor_running}
+              latestMeasurement={latestMeasurement}
+            />
           </Widget>
         </div>
 

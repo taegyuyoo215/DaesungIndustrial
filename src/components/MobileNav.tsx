@@ -6,6 +6,7 @@ import { useTheme } from "@/components/ThemeProvider";
 
 const navItems = [
   { href: "/",            label: "대시보드", icon: "⬛" },
+  { href: "/fft",         label: "FFT",      icon: "📊" },
   { href: "/motors",      label: "모터",     icon: "⚙️" },
   { href: "/alarms",      label: "알람",     icon: "🔔" },
   { href: "/maintenance", label: "정비",     icon: "🔧" },

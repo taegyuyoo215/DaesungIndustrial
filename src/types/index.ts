@@ -45,6 +45,13 @@ export interface MotorStatus extends Motor {
   vel_z_rms: number | null
   temperature_c: number | null
   kurtosis_x: number | null
+  kurtosis_y: number | null
+  kurtosis_z: number | null
+  hf_accel_x_rms: number | null
+  crest_x: number | null
+  pkpk_accel_x: number | null
+  peak_vel_freq_x: number | null
+  motor_running: boolean | null
   active_alarms: number
   // 계산 필드
   severity: Severity
@@ -110,6 +117,18 @@ export interface HourlyAvg {
   vel_z_avg: number | null
   kurtosis_x_max: number | null
   temp_avg: number | null
+  crest_x_avg: number | null
+  pkpk_x_avg: number | null
+  peak_vel_freq_x_avg: number | null
+  kurtosis_z_avg: number | null
+}
+
+// 원시 지표 상태 (FFT 페이지 센서 현황 패널)
+export interface RawMetricStatus {
+  label: string
+  value: number
+  status: 'normal' | 'early_warning' | 'warning'
+  unit: string
 }
 
 // ── 임계값 ────────────────────────────────────────────────
@@ -182,6 +201,54 @@ export interface MaintenanceLog {
 export interface PartItem {
   name: string
   qty: number
+}
+
+// ── FFT 스펙트럼 ──────────────────────────────────────────
+
+export interface FftSpectrum {
+  id: number
+  motor_id: number
+  sensor_id: number
+  measured_at: string
+  axis: 'x' | 'y' | 'z'
+  fmax_hz: number
+  resolution_hz: number
+  rpm_measured: number | null
+  freq_bins: number[]
+  amp_bins: number[]
+}
+
+/** 결함 주파수별 추세 분석 결과 */
+export interface FftTrendItem {
+  label: string                               // '1X' | '2X' | 'BPFO' | 'BPFI' | 'BSF' | 'FTF'
+  freq: number                                // Hz
+  history: number[]                           // 시간순 진폭 배열 (oldest → newest)
+  trend: 'rising' | 'stable' | 'falling'
+  rateOfChange: number                        // oldest → newest 변화율 (%)
+  status: 'normal' | 'early_warning' | 'warning'
+  currentAmp: number                          // 최신 진폭 (mm/s)
+  warnThreshold: number                       // 경보 임계값
+  earlyWarnThreshold: number                  // 조기경보 임계값
+}
+
+/** 차트에 바인딩할 단일 빈 */
+export interface FftBin {
+  freq: number
+  amp: number
+  label?: string   // '1X' | '2X' | 'BPFO' | 'BPFI' | 'BSF' | 'FTF'
+  color?: string
+}
+
+/** 베어링 결함 주파수 계산 결과 */
+export interface BearingFreqs {
+  rpm: number
+  f1x: number    // 1X (shaft)
+  f2x: number    // 2X
+  f3x: number    // 3X
+  ftf: number    // Fundamental Train Frequency
+  bsf: number    // Ball Spin Frequency
+  bpfo: number   // Ball Pass Frequency Outer race
+  bpfi: number   // Ball Pass Frequency Inner race
 }
 
 // ── API 응답 래퍼 ─────────────────────────────────────────

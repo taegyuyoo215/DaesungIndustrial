@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
 
 const navItems = [
-  { href: "/",            label: "대시보드",  icon: "⬛" },
-  { href: "/motors",      label: "모터 목록", icon: "⚙️" },
-  { href: "/alarms",      label: "알람 이력", icon: "🔔" },
-  { href: "/maintenance", label: "정비 이력", icon: "🔧" },
-  { href: "/reports",     label: "보고서",    icon: "📄" },
-  { href: "/settings",    label: "설정",      icon: "⚙" },
+  { href: "/",            label: "대시보드",     icon: "⬛" },
+  { href: "/fft",         label: "FFT 분석",     icon: "📊" },
+  { href: "/motors",      label: "모터 목록",    icon: "⚙️" },
+  { href: "/alarms",      label: "알람 이력",    icon: "🔔" },
+  { href: "/maintenance", label: "정비 이력",    icon: "🔧" },
+  { href: "/reports",     label: "보고서",       icon: "📄" },
+  { href: "/settings",    label: "설정",         icon: "⚙" },
 ];
 
 export default function Sidebar() {

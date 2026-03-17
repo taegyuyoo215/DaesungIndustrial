@@ -44,10 +44,14 @@ export async function GET(
       const rows = await query(`
         SELECT
           date_trunc('${trunc}', time) AS bucket,
-          AVG(vel_y_rms)      AS vel_y_avg,
-          AVG(hf_accel_y_rms) AS hf_accel_y_avg,
-          AVG(kurtosis_y)     AS kurtosis_y_avg,
-          AVG(temperature_c)  AS temp_avg
+          AVG(vel_y_rms)         AS vel_y_avg,
+          AVG(hf_accel_y_rms)    AS hf_accel_y_avg,
+          AVG(kurtosis_y)        AS kurtosis_y_avg,
+          AVG(temperature_c)     AS temp_avg,
+          AVG(crest_x)           AS crest_x_avg,
+          AVG(pkpk_accel_x)      AS pkpk_x_avg,
+          AVG(peak_vel_freq_x)   AS peak_vel_freq_x_avg,
+          MAX(kurtosis_z)        AS kurtosis_z_avg
         FROM measurements
         WHERE sensor_id = $1
           AND time >= ${anchorExpr} - ($2 || ' hours')::INTERVAL

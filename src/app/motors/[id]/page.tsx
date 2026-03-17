@@ -29,6 +29,10 @@ interface HourlyRow {
   hf_accel_y_avg: number | null
   kurtosis_y_avg: number | null
   temp_avg: number | null
+  crest_x_avg: number | null
+  pkpk_x_avg: number | null
+  peak_vel_freq_x_avg: number | null
+  kurtosis_z_avg: number | null
 }
 
 // ── 상수 ─────────────────────────────────────────────────
@@ -55,23 +59,42 @@ function getTh(thresholds: Threshold[], metric: string, motorId: number) {
 }
 
 function computeSeverity(m: Measurement, thresholds: Threshold[], motorId: number): Severity {
-  const velTh  = getTh(thresholds, 'vel_rms',     motorId)
-  const kurtTh = getTh(thresholds, 'kurtosis',    motorId)
-  const tempTh = getTh(thresholds, 'temperature', motorId)
-  const v = Number(m.vel_y_rms ?? 0)
-  const k = Number(m.kurtosis_x ?? 0)
-  const t = Number(m.temperature_c ?? 0)
+  // 모터 정지 중이면 분석 스킵
+  if (m.motor_running === false) return 'normal'
+
+  const velTh   = getTh(thresholds, 'vel_rms',      motorId)
+  const kurtTh  = getTh(thresholds, 'kurtosis',     motorId)
+  const tempTh  = getTh(thresholds, 'temperature',  motorId)
+  const crestTh = getTh(thresholds, 'crest_factor', motorId)
+  const hfTh    = getTh(thresholds, 'hf_accel',     motorId)
+  const pkpkTh  = getTh(thresholds, 'pkpk_accel',   motorId)
+
+  const v      = Number(m.vel_y_rms     ?? 0)
+  const k      = Math.max(Number(m.kurtosis_x ?? 0), Number(m.kurtosis_y ?? 0), Number(m.kurtosis_z ?? 0))
+  const t      = Number(m.temperature_c ?? 0)
+  const crest  = Number(m.crest_x       ?? 0)
+  const hf     = Number(m.hf_accel_x_rms ?? 0)
+  const pkpk   = Number(m.pkpk_accel_x  ?? 0)
+
+  const crestAlarm = crestTh?.alarm_value ?? 4.0
+  const crestWarn  = crestTh?.warn_value  ?? 2.5
+  const hfAlarm    = hfTh?.alarm_value    ?? 3.0
+  const hfWarn     = hfTh?.warn_value     ?? 1.5
+  const pkpkWarn   = pkpkTh?.warn_value   ?? 5.0
 
   if (
-    (velTh  && v >= velTh.alarm_value)  ||
-    (kurtTh && k >= kurtTh.alarm_value) ||
-    (tempTh && t >= tempTh.alarm_value)
+    (velTh  && v     >= velTh.alarm_value)  ||
+    (kurtTh && k     >= kurtTh.alarm_value) ||
+    (tempTh && t     >= tempTh.alarm_value) ||
+    crest >= crestAlarm || hf >= hfAlarm
   ) return 'critical'
 
   if (
-    (velTh  && v >= velTh.warn_value)  ||
-    (kurtTh && k >= kurtTh.warn_value) ||
-    (tempTh && t >= tempTh.warn_value)
+    (velTh  && v     >= velTh.warn_value)  ||
+    (kurtTh && k     >= kurtTh.warn_value) ||
+    (tempTh && t     >= tempTh.warn_value) ||
+    crest >= crestWarn || hf >= hfWarn ||
+    pkpk  >= pkpkWarn
   ) return 'warning'
 
   return 'normal'
@@ -129,15 +152,20 @@ export default function MotorDetailPage() {
   const hourly      = measRes?.data ?? []
 
   // 트렌드 데이터 변환
-  const velData  = hourly.map(h => ({ time: h.bucket, value: h.vel_y_avg }))
-  const hfData   = hourly.map(h => ({ time: h.bucket, value: h.hf_accel_y_avg }))
-  const kurtData = hourly.map(h => ({ time: h.bucket, value: h.kurtosis_y_avg }))
-  const tempData = hourly.map(h => ({ time: h.bucket, value: h.temp_avg }))
+  const velData   = hourly.map(h => ({ time: h.bucket, value: h.vel_y_avg }))
+  const hfData    = hourly.map(h => ({ time: h.bucket, value: h.hf_accel_y_avg }))
+  const kurtData  = hourly.map(h => ({ time: h.bucket, value: h.kurtosis_y_avg }))
+  const tempData  = hourly.map(h => ({ time: h.bucket, value: h.temp_avg }))
+  const crestData = hourly.map(h => ({ time: h.bucket, value: h.crest_x_avg }))
+  const pkpkData  = hourly.map(h => ({ time: h.bucket, value: h.pkpk_x_avg }))
+  const peakFreqData = hourly.map(h => ({ time: h.bucket, value: h.peak_vel_freq_x_avg }))
 
   // 임계값
-  const velTh  = motor ? getTh(thresholds, 'vel_rms',     motor.id) : null
-  const kurtTh = motor ? getTh(thresholds, 'kurtosis',    motor.id) : null
-  const tempTh = motor ? getTh(thresholds, 'temperature', motor.id) : null
+  const velTh   = motor ? getTh(thresholds, 'vel_rms',      motor.id) : null
+  const kurtTh  = motor ? getTh(thresholds, 'kurtosis',     motor.id) : null
+  const tempTh  = motor ? getTh(thresholds, 'temperature',  motor.id) : null
+  const crestTh = motor ? getTh(thresholds, 'crest_factor', motor.id) : null
+  const pkpkTh  = motor ? getTh(thresholds, 'pkpk_accel',   motor.id) : null
 
   // 심각도 계산
   const severity: Severity = diag?.severity ?? (motor && m
@@ -323,6 +351,22 @@ export default function MotorDetailPage() {
                 warningLine={tempTh  ? Number(tempTh.warn_value)  : undefined}
                 criticalLine={tempTh ? Number(tempTh.alarm_value) : undefined}
               />
+            </div>
+          </div>
+
+          {/* 추가 트렌드 차트: Crest Factor / Pk-Pk / 지배 주파수 */}
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">충격·주파수 지표 트렌드 (최근 7일)</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <TrendChart label="Crest Factor (X축)" unit="" data={crestData} color="#06b6d4"
+                warningLine={crestTh ? Number(crestTh.warn_value)  : 2.5}
+                criticalLine={crestTh ? Number(crestTh.alarm_value) : 4.0}
+              />
+              <TrendChart label="Pk-Pk 가속도 (X축)" unit="g" data={pkpkData} color="#f59e0b"
+                warningLine={pkpkTh ? Number(pkpkTh.warn_value)  : 5.0}
+                criticalLine={pkpkTh ? Number(pkpkTh.alarm_value) : 10.0}
+              />
+              <TrendChart label="지배 주파수 (X축, Peak Vel Freq)" unit="Hz" data={peakFreqData} color="#a78bfa" />
             </div>
           </div>
         </div>
