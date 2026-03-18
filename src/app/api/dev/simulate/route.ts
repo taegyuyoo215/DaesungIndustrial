@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { runAutoDiagnosis } from '@/lib/autodiagnosis'
 
 // ── 심각도별 목표 범위 ─────────────────────────────────────
 const RANGES = {
@@ -111,6 +112,22 @@ export async function POST() {
         kurtX, kurtY, kurtZ,
         tempC,
       ])
+
+      // 자동 진단: 측정값 저장 후 임계값 초과 여부 판단 → diagnosis_results + alarms 생성
+      await runAutoDiagnosis({
+        motorId: s.motor_id,
+        meas: {
+          vel_y_rms:      velY,
+          hf_accel_x_rms: hfX,
+          kurtosis_x:     kurtX,
+          kurtosis_y:     kurtY,
+          kurtosis_z:     kurtZ,
+          temperature_c:  tempC,
+          crest_x:        null,
+          pkpk_accel_x:   null,
+          motor_running:  true,
+        },
+      })
 
       count++
     }
