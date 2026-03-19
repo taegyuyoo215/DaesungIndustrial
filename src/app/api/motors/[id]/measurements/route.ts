@@ -13,9 +13,9 @@ export async function GET(
 
   const sp = req.nextUrl.searchParams
   // hours: 최근 N시간치 데이터 (기본 24시간)
-  const hours  = Math.min(Number(sp.get('hours')  ?? 24), 168) // 최대 7일
+  const hours  = Math.min(Number(sp.get('hours')  ?? 24), 720) // 최대 30일
   const metric = sp.get('metric') ?? 'vel_rms'   // vel_rms | hf_accel | kurtosis | temperature
-  const bucket = sp.get('bucket') ?? 'raw'       // raw | hour
+  const bucket = sp.get('bucket') ?? 'raw'       // raw | hour | minute | day
 
   try {
     // 센서 ID 조회
@@ -29,13 +29,13 @@ export async function GET(
 
     const sensorId = sensor.id
 
-    if (bucket === 'hour' || bucket === 'minute') {
-      // 시간별 / 분별 평균 (트렌드 차트용)
+    if (bucket === 'hour' || bucket === 'minute' || bucket === 'day') {
+      // 시간별 / 분별 / 일별 평균 (트렌드 차트용)
       // anchor=latest: DB 최신 측정 시각 기준으로 N시간 창을 잡음
       // → 시드 데이터처럼 타임스탬프가 고정된 경우에도 차트가 표시됨
       // → 실제 센서가 연결되면 MAX(time) ≈ NOW() 이므로 실시간과 동일
       const anchor = sp.get('anchor') ?? 'now' // now | latest
-      const trunc  = bucket === 'minute' ? 'minute' : 'hour'
+      const trunc  = bucket === 'minute' ? 'minute' : bucket === 'day' ? 'day' : 'hour'
 
       const anchorExpr = anchor === 'latest'
         ? `(SELECT COALESCE(MAX(time), NOW()) FROM measurements WHERE sensor_id = $1)`

@@ -4,7 +4,6 @@ import { useParams } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
 import StatusBadge from '@/components/StatusBadge'
-import TrendChart from '@/components/charts/TrendChart'
 import { fetcher } from '@/lib/fetcher'
 import type {
   Motor, Sensor, Measurement, DiagnosisResult,
@@ -21,18 +20,6 @@ interface MotorDetailData {
   activeAlarms: Alarm[]
   maintenanceLogs: MaintenanceLog[]
   thresholds: Threshold[]
-}
-
-interface HourlyRow {
-  bucket: string
-  vel_y_avg: number | null
-  hf_accel_y_avg: number | null
-  kurtosis_y_avg: number | null
-  temp_avg: number | null
-  crest_x_avg: number | null
-  pkpk_x_avg: number | null
-  peak_vel_freq_x_avg: number | null
-  kurtosis_z_avg: number | null
 }
 
 // ── 상수 ─────────────────────────────────────────────────
@@ -101,9 +88,9 @@ function computeSeverity(m: Measurement, thresholds: Threshold[], motorId: numbe
 }
 
 const severityStyle = {
-  normal:   { card: 'bg-green-50 border-green-300',   badge: 'text-green-500',  title: 'text-green-800',  rul: 'border-green-200',  bar: 'bg-green-400'  },
-  warning:  { card: 'bg-yellow-50 border-yellow-300', badge: 'text-yellow-500', title: 'text-yellow-800', rul: 'border-yellow-200', bar: 'bg-yellow-400' },
-  critical: { card: 'bg-red-50 border-red-300',       badge: 'text-red-500',    title: 'text-red-800',    rul: 'border-red-200',    bar: 'bg-red-500'    },
+  normal:   { card: 'bg-green-50 dark:bg-emerald-900/20 border-green-300 dark:border-emerald-700',   badge: 'text-green-600 dark:text-emerald-400',  title: 'text-green-800 dark:text-emerald-300',  rul: 'border-green-200 dark:border-emerald-800',  bar: 'bg-green-400 dark:bg-emerald-500'  },
+  warning:  { card: 'bg-yellow-50 dark:bg-amber-900/20 border-yellow-300 dark:border-amber-700',     badge: 'text-yellow-600 dark:text-amber-400',   title: 'text-yellow-800 dark:text-amber-300',   rul: 'border-yellow-200 dark:border-amber-800',   bar: 'bg-yellow-400 dark:bg-amber-500'   },
+  critical: { card: 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700',               badge: 'text-red-600 dark:text-red-400',        title: 'text-red-800 dark:text-red-300',        rul: 'border-red-200 dark:border-red-800',        bar: 'bg-red-500 dark:bg-red-500'        },
 }
 
 // ── 서브 컴포넌트 ─────────────────────────────────────────
@@ -136,11 +123,6 @@ export default function MotorDetailPage() {
   const { data: detailRes, isLoading } =
     useSWR<ApiResponse<MotorDetailData>>(`/api/motors/${id}`, fetcher, { refreshInterval: 30_000 })
 
-  const { data: measRes } =
-    useSWR<ApiResponse<HourlyRow[]>>(
-      `/api/motors/${id}/measurements?hours=168&bucket=hour`, fetcher
-    )
-
   const detail      = detailRes?.data
   const motor       = detail?.motor
   const sensor      = detail?.sensor
@@ -149,23 +131,11 @@ export default function MotorDetailPage() {
   const alarms      = detail?.activeAlarms ?? []
   const maintenance = detail?.maintenanceLogs ?? []
   const thresholds  = detail?.thresholds ?? []
-  const hourly      = measRes?.data ?? []
-
-  // 트렌드 데이터 변환
-  const velData   = hourly.map(h => ({ time: h.bucket, value: h.vel_y_avg }))
-  const hfData    = hourly.map(h => ({ time: h.bucket, value: h.hf_accel_y_avg }))
-  const kurtData  = hourly.map(h => ({ time: h.bucket, value: h.kurtosis_y_avg }))
-  const tempData  = hourly.map(h => ({ time: h.bucket, value: h.temp_avg }))
-  const crestData = hourly.map(h => ({ time: h.bucket, value: h.crest_x_avg }))
-  const pkpkData  = hourly.map(h => ({ time: h.bucket, value: h.pkpk_x_avg }))
-  const peakFreqData = hourly.map(h => ({ time: h.bucket, value: h.peak_vel_freq_x_avg }))
 
   // 임계값
   const velTh   = motor ? getTh(thresholds, 'vel_rms',      motor.id) : null
   const kurtTh  = motor ? getTh(thresholds, 'kurtosis',     motor.id) : null
   const tempTh  = motor ? getTh(thresholds, 'temperature',  motor.id) : null
-  const crestTh = motor ? getTh(thresholds, 'crest_factor', motor.id) : null
-  const pkpkTh  = motor ? getTh(thresholds, 'pkpk_accel',   motor.id) : null
 
   // 심각도 계산
   const severity: Severity = diag?.severity ?? (motor && m
@@ -207,9 +177,17 @@ export default function MotorDetailPage() {
       {/* 헤더 */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{motor.name}</h1>
             <StatusBadge status={!m ? 'offline' : severity} />
+            {maintenance.length > 0 && (
+              <span className="flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                <span className="text-slate-400 dark:text-slate-500">최근 정비</span>
+                <span className="font-medium text-slate-600 dark:text-slate-300">{maintenance[0].work_type}</span>
+                <span className="text-slate-300 dark:text-slate-700">·</span>
+                <span>{new Date(maintenance[0].performed_at).toLocaleDateString('ko-KR')}</span>
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-500 mt-1">
             {motor.location}
@@ -226,7 +204,7 @@ export default function MotorDetailPage() {
 
       <div className="grid grid-cols-3 gap-6">
         {/* 좌측 컬럼 */}
-        <div className="col-span-2 space-y-6">
+        <div className="col-span-2 flex flex-col gap-6">
 
           {/* AI 진단 결과 */}
           {diag ? (
@@ -283,20 +261,20 @@ export default function MotorDetailPage() {
               )}
             </div>
           ) : (
-            <div className="bg-green-50 dark:bg-emerald-900/20 border-2 border-green-300 rounded-xl p-5">
-              <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mb-1">AI 진단 결과</p>
-              <p className="text-lg font-bold text-green-800 dark:text-emerald-400">진단 데이터 없음</p>
-              <p className="text-sm text-green-600 dark:text-emerald-400 mt-1">측정 데이터가 충분히 쌓이면 자동으로 진단됩니다.</p>
+            <div className="bg-slate-50 dark:bg-slate-800/40 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-5">
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1">AI 진단 결과</p>
+              <p className="text-lg font-bold text-slate-600 dark:text-slate-300">진단 데이터 없음</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">측정 데이터가 충분히 쌓이면 자동으로 진단됩니다.</p>
             </div>
           )}
 
           {/* 최신 측정값 테이블 */}
           {m ? (
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
               <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/60">
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">최신 측정값</h3>
               </div>
-              <table className="w-full">
+              <table className="w-full flex-1">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-[#0a0f1e]">
                     {['항목', 'X축', 'Y축', 'Z축'].map(h => (
@@ -327,48 +305,11 @@ export default function MotorDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 text-center text-slate-400 dark:text-slate-600 text-sm">
+            <div className="flex-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 text-center text-slate-400 dark:text-slate-600 text-sm">
               측정 데이터가 없습니다 (센서 오프라인)
             </div>
           )}
 
-          {/* 트렌드 차트 (7일) */}
-          <div>
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">진동·온도 트렌드 (최근 7일)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <TrendChart label="RMS Velocity (Y축)" unit="mm/s" data={velData}  color="#3b82f6"
-                warningLine={velTh  ? Number(velTh.warn_value)  : undefined}
-                criticalLine={velTh ? Number(velTh.alarm_value) : undefined}
-              />
-              <TrendChart label="HF Acceleration (Y축)" unit="g"  data={hfData}  color="#ef4444"
-                warningLine={2.0} criticalLine={3.5}
-              />
-              <TrendChart label="Kurtosis (Y축)" unit=""     data={kurtData} color="#8b5cf6"
-                warningLine={kurtTh  ? Number(kurtTh.warn_value)  : undefined}
-                criticalLine={kurtTh ? Number(kurtTh.alarm_value) : undefined}
-              />
-              <TrendChart label="온도" unit="°C"    data={tempData} color="#f97316"
-                warningLine={tempTh  ? Number(tempTh.warn_value)  : undefined}
-                criticalLine={tempTh ? Number(tempTh.alarm_value) : undefined}
-              />
-            </div>
-          </div>
-
-          {/* 추가 트렌드 차트: Crest Factor / Pk-Pk / 지배 주파수 */}
-          <div>
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">충격·주파수 지표 트렌드 (최근 7일)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <TrendChart label="Crest Factor (X축)" unit="" data={crestData} color="#06b6d4"
-                warningLine={crestTh ? Number(crestTh.warn_value)  : 2.5}
-                criticalLine={crestTh ? Number(crestTh.alarm_value) : 4.0}
-              />
-              <TrendChart label="Pk-Pk 가속도 (X축)" unit="g" data={pkpkData} color="#f59e0b"
-                warningLine={pkpkTh ? Number(pkpkTh.warn_value)  : 5.0}
-                criticalLine={pkpkTh ? Number(pkpkTh.alarm_value) : 10.0}
-              />
-              <TrendChart label="지배 주파수 (X축, Peak Vel Freq)" unit="Hz" data={peakFreqData} color="#a78bfa" />
-            </div>
-          </div>
         </div>
 
         {/* 우측 사이드바 */}
@@ -415,6 +356,39 @@ export default function MotorDetailPage() {
             </div>
           )}
 
+          {/* 정비 이력 */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">정비 이력</h3>
+              <Link href="/maintenance" className="text-xs text-cyan-500 hover:text-cyan-400">전체 보기</Link>
+            </div>
+            {maintenance.length === 0 ? (
+              <p className="text-xs text-slate-400 dark:text-slate-600 text-center py-3">정비 이력 없음</p>
+            ) : (
+              <div className="space-y-2.5">
+                {maintenance.map(log => (
+                  <div key={log.id} className="flex gap-3 items-start">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+                    <div className="min-w-0 w-full">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{log.work_type}</p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-600 shrink-0">
+                          {new Date(log.performed_at).toLocaleDateString('ko-KR')}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                        {log.description ?? '상세 내용 없음'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-0.5">
+                        담당자: {log.performed_by_name ?? '미지정'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 활성 알람 */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">활성 알람</h3>
@@ -441,29 +415,6 @@ export default function MotorDetailPage() {
             )}
           </div>
 
-          {/* 최근 정비 이력 */}
-          {maintenance.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">최근 정비</h3>
-                <Link href="/maintenance" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
-              </div>
-              <div className="space-y-3">
-                {maintenance.map(log => (
-                  <div key={log.id} className="border-l-2 border-blue-200 dark:border-blue-800 pl-3">
-                    <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{log.work_type}</p>
-                    {log.description && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-500 mt-0.5 truncate">{log.description}</p>
-                    )}
-                    <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-0.5">
-                      {new Date(log.performed_at).toLocaleDateString('ko-KR')}
-                      {log.performed_by_name && ` · ${log.performed_by_name}`}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

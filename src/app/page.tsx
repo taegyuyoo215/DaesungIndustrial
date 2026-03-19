@@ -5,8 +5,8 @@ import GridLayout, { WidthProvider } from 'react-grid-layout/legacy'
 import type { Layout, LayoutItem } from 'react-grid-layout/legacy'
 import useSWR from 'swr'
 import Link from 'next/link'
-import TrendChart from '@/components/charts/TrendChart'
 import type { TrendPoint } from '@/components/charts/TrendChart'
+import MultiTrendChart from '@/components/charts/MultiTrendChart'
 import StatusBadge from '@/components/StatusBadge'
 import { fetcher } from '@/lib/fetcher'
 import type {
@@ -689,72 +689,71 @@ function DiagnosisContent({
 
 // ── 추이 차트 탭 위젯 ─────────────────────────────────────
 
-type TrendTab = 'vel' | 'temp' | 'kurt'
+export type TrendRangeKey = '1h' | '24h' | '7d' | '30d'
 
-const TREND_TABS = [
-  { key: 'vel'  as TrendTab, label: '진동 RMS', unit: 'mm/s', color: '#3b82f6', warn: VEL_WARN,  crit: VEL_CRIT,  activeCls: 'bg-blue-500 text-white',   border: 'border-l-blue-500'   },
-  { key: 'temp' as TrendTab, label: '온도',     unit: '°C',   color: '#f97316', warn: TEMP_WARN, crit: TEMP_CRIT, activeCls: 'bg-orange-500 text-white', border: 'border-l-orange-500' },
-  { key: 'kurt' as TrendTab, label: 'Kurtosis', unit: '',     color: '#8b5cf6', warn: KURT_WARN, crit: KURT_CRIT, activeCls: 'bg-purple-500 text-white', border: 'border-l-purple-500' },
-] as const
+export const TREND_RANGE_OPTIONS: { key: TrendRangeKey; label: string; hours: number; bucket: string }[] = [
+  { key: '1h',  label: '1시간', hours: 1,   bucket: 'minute' },
+  { key: '24h', label: '24시간', hours: 24,  bucket: 'hour'   },
+  { key: '7d',  label: '7일',   hours: 168, bucket: 'hour'   },
+  { key: '30d', label: '30일',  hours: 720, bucket: 'day'    },
+]
+
 
 function TrendTabWidget({
-  velTrend, tempTrend, kurtTrend,
+  velTrend, tempTrend, kurtTrend, trendRange, onRangeChange,
 }: {
-  velTrend:  TrendPoint[]
-  tempTrend: TrendPoint[]
-  kurtTrend: TrendPoint[]
+  velTrend:      TrendPoint[]
+  tempTrend:     TrendPoint[]
+  kurtTrend:     TrendPoint[]
+  trendRange:    TrendRangeKey
+  onRangeChange: (r: TrendRangeKey) => void
 }) {
-  const [active, setActive] = useState<TrendTab>('vel')
-
-  const tab      = TREND_TABS.find(t => t.key === active)!
-  const dataMap  = { vel: velTrend, temp: tempTrend, kurt: kurtTrend }
+  const rangeLabel = TREND_RANGE_OPTIONS.find(r => r.key === trendRange)?.label ?? ''
 
   return (
-    <div className={`h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col overflow-hidden`}>
+    <div className="h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex flex-col overflow-hidden">
 
-      {/* 헤더 + 탭 */}
-      <div className={`widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800 border-l-[3px] ${tab.border} shrink-0 select-none`}>
+      {/* 헤더: 타이틀 + 기간 토글 */}
+      <div className="widget-drag-handle flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800 border-l-[3px] border-l-blue-500 shrink-0 select-none">
         <div className="flex items-center gap-1.5">
           <svg className="w-3 h-3 text-slate-300 dark:text-slate-700 shrink-0" viewBox="0 0 10 16" fill="currentColor">
             <circle cx="2" cy="2"  r="1.2"/><circle cx="8" cy="2"  r="1.2"/>
             <circle cx="2" cy="8"  r="1.2"/><circle cx="8" cy="8"  r="1.2"/>
             <circle cx="2" cy="14" r="1.2"/><circle cx="8" cy="14" r="1.2"/>
           </svg>
-          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 tracking-wide">추이 차트 (최근 1h)</span>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 tracking-wide">
+            추이 차트 (최근 {rangeLabel})
+          </span>
         </div>
 
-        {/* 탭 버튼 — 드래그 이벤트 차단 */}
+        {/* 기간 토글 — 드래그 이벤트 차단 */}
         <div
-          className="flex items-center gap-1 cursor-auto"
+          className="flex rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 cursor-auto"
           onMouseDown={e => e.stopPropagation()}
           onTouchStart={e => e.stopPropagation()}
         >
-          {TREND_TABS.map(t => (
+          {TREND_RANGE_OPTIONS.map(opt => (
             <button
-              key={t.key}
-              onClick={() => setActive(t.key)}
-              className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors ${
-                active === t.key
-                  ? t.activeCls
-                  : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              key={opt.key}
+              onClick={() => onRangeChange(opt.key)}
+              className={`text-[10px] px-2 py-1 font-medium transition-colors ${
+                trendRange === opt.key
+                  ? 'bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900'
+                  : 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
-              {t.label}
+              {opt.label}
             </button>
           ))}
         </div>
       </div>
 
       {/* 차트 영역 */}
-      <div className="flex-1 min-h-0 relative overflow-hidden">
-        <TrendChart
-          label={`${tab.label} 추이 (최근 1h)`}
-          unit={tab.unit}
-          data={dataMap[active]}
-          color={tab.color}
-          warningLine={tab.warn}
-          criticalLine={tab.crit}
-          bare
+      <div className="flex-1 min-h-0 p-3">
+        <MultiTrendChart
+          velData={velTrend}
+          tempData={tempTrend}
+          kurtData={kurtTrend}
         />
       </div>
 
@@ -765,13 +764,15 @@ function TrendTabWidget({
 // ── 위젯 대시보드 ─────────────────────────────────────────
 
 function MotorDashboard({
-  selectedStatus, detail, trendData, isLoading, isEditing,
+  selectedStatus, detail, trendData, isLoading, isEditing, trendRange, onRangeChange,
 }: {
   selectedStatus: MotorStatus | undefined
   detail:         MotorDetailData | undefined
   trendData:      TrendRow[]
   isLoading:      boolean
   isEditing:      boolean
+  trendRange:     TrendRangeKey
+  onRangeChange:  (r: TrendRangeKey) => void
 }) {
   const [layout, setLayout] = useState<LayoutItem[]>(DEFAULT_LAYOUT)
   const [mounted, setMounted] = useState(false)
@@ -1025,6 +1026,8 @@ function MotorDashboard({
             velTrend={velTrend}
             tempTrend={tempTrend}
             kurtTrend={kurtTrend}
+            trendRange={trendRange}
+            onRangeChange={onRangeChange}
           />
         </div>
 
@@ -1051,6 +1054,7 @@ export default function DashboardPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [trendRange, setTrendRange] = useState<TrendRangeKey>('1h')
 
   const { data: motorRes, mutate: mutateMotors } =
     useSWR<ApiResponse<MotorStatus[]>>('/api/motors', fetcher, {
@@ -1075,9 +1079,13 @@ export default function DashboardPage() {
       fetcher, { refreshInterval: 10_000 }
     )
 
+  const selectedRangeOpt = TREND_RANGE_OPTIONS.find(r => r.key === trendRange)!
+
   const { data: trendRes, mutate: mutateTrend } =
     useSWR<{ data: TrendRow[] }>(
-      selectedId ? `/api/motors/${selectedId}/measurements?hours=1&bucket=minute&anchor=latest` : null,
+      selectedId
+        ? `/api/motors/${selectedId}/measurements?hours=${selectedRangeOpt.hours}&bucket=${selectedRangeOpt.bucket}&anchor=latest`
+        : null,
       fetcher, { refreshInterval: 10_000 }
     )
 
@@ -1180,6 +1188,8 @@ export default function DashboardPage() {
             trendData={trendData}
             isLoading={detailLoading}
             isEditing={isEditing}
+            trendRange={trendRange}
+            onRangeChange={setTrendRange}
           />
         )}
       </div>

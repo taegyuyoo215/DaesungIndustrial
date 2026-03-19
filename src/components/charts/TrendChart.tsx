@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, XAxis, YAxis,
   Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 
@@ -41,7 +41,6 @@ export default function TrendChart({
   const lineChart = (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
         <XAxis
           dataKey="time"
           tick={{ fontSize: 9 }}
