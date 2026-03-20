@@ -5,7 +5,7 @@ import useSWR from 'swr'
 import { fetcher } from '@/lib/fetcher'
 import type { Sensor, Threshold, Motor, ApiResponse } from '@/types'
 
-const tabs = ['센서 관리', '임계값 설정', '알림 설정', '사용자 관리']
+const tabs = ['센서 관리', '임계값 설정', '알림 설정', '사용자 관리', 'API 키 관리']
 
 // ── 상태 배지 ─────────────────────────────────────────────
 
@@ -333,6 +333,211 @@ function NotificationTab() {
   )
 }
 
+// ── API 키 관리 탭 ────────────────────────────────────────
+
+interface SensorKey {
+  sensor_id:     number
+  serial_number: string
+  motor_name:    string
+  location:      string | null
+  status:        string
+  api_key:       string
+  last_seen_at:  string | null
+}
+
+function ApiKeyTab() {
+  const { data, mutate, isLoading } =
+    useSWR<{ ok: boolean; keys: SensorKey[] }>('/api/ingest/keys', fetcher)
+  const keys = data?.keys ?? []
+
+  const [visibleIds, setVisibleIds]   = useState<Set<number>>(new Set())
+  const [copiedId,   setCopiedId]     = useState<number | null>(null)
+  const [regen,      setRegen]        = useState<number | null>(null)
+
+  function toggleVisible(id: number) {
+    setVisibleIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function copyKey(id: number, key: string) {
+    await navigator.clipboard.writeText(key)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  async function regenerateKey(sensorId: number) {
+    if (!confirm('API 키를 재발급하면 기존 키는 즉시 무효화됩니다. 계속하시겠습니까?')) return
+    setRegen(sensorId)
+    await fetch('/api/ingest/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sensor_id: sensorId }),
+    })
+    await mutate()
+    setRegen(null)
+  }
+
+  const endpoint = typeof window !== 'undefined'
+    ? `${window.location.origin}/api/ingest`
+    : '/api/ingest'
+
+  return (
+    <div className="space-y-6">
+      {/* 안내 */}
+      <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/40 rounded-xl p-4">
+        <p className="text-sm font-semibold text-cyan-700 dark:text-cyan-400 mb-1">실센서 연동 방법</p>
+        <p className="text-xs text-cyan-600 dark:text-cyan-500 mb-2">
+          센서 또는 게이트웨이에서 아래 엔드포인트로 JSON 데이터를 전송하세요.
+        </p>
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-cyan-200 dark:border-cyan-800/40 px-3 py-2 flex items-center justify-between gap-2">
+          <code className="text-xs font-mono text-slate-700 dark:text-slate-300 break-all">
+            POST {endpoint}
+          </code>
+          <button
+            onClick={() => navigator.clipboard.writeText(`POST ${endpoint}`)}
+            className="shrink-0 text-[10px] text-cyan-600 hover:underline"
+          >
+            복사
+          </button>
+        </div>
+        <p className="text-xs text-cyan-600 dark:text-cyan-500 mt-2">
+          헤더: <code className="font-mono bg-cyan-100 dark:bg-cyan-900/40 px-1 rounded">X-API-Key: &lt;센서 API 키&gt;</code>
+        </p>
+      </div>
+
+      {/* 키 목록 */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/60">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            센서별 API 키 {isLoading ? '…' : `(${keys.length})`}
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            각 센서마다 고유한 키가 발급됩니다. 키는 한 번만 표시되므로 안전하게 보관하세요.
+          </p>
+        </div>
+        <table className="w-full">
+          <thead>
+            <tr className="bg-slate-50 dark:bg-[#0a0f1e]">
+              {['시리얼', '모터', '상태', '마지막 수신', 'API 키', '액션'].map(h => (
+                <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">불러오는 중...</td>
+              </tr>
+            ) : keys.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">
+                  API 키가 없습니다. DB 마이그레이션을 먼저 실행하세요.
+                </td>
+              </tr>
+            ) : (
+              keys.map(k => (
+                <tr key={k.sensor_id} className="border-t border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/20">
+                  <td className="px-5 py-3 text-sm font-mono text-slate-700 dark:text-slate-300">
+                    {k.serial_number}
+                  </td>
+                  <td className="px-5 py-3 text-sm text-slate-700 dark:text-slate-300">
+                    <p>{k.motor_name}</p>
+                    {k.location && <p className="text-xs text-slate-400">{k.location}</p>}
+                  </td>
+                  <td className="px-5 py-3">
+                    <SensorStatusBadge status={k.status} />
+                  </td>
+                  <td className="px-5 py-3 text-xs text-slate-400 whitespace-nowrap">
+                    {k.last_seen_at
+                      ? new Date(k.last_seen_at).toLocaleString('ko-KR')
+                      : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                  </td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <code className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded max-w-[180px] truncate block">
+                        {visibleIds.has(k.sensor_id) ? k.api_key : '••••••••••••••••••••'}
+                      </code>
+                      <button
+                        onClick={() => toggleVisible(k.sensor_id)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
+                        title={visibleIds.has(k.sensor_id) ? '숨기기' : '표시'}
+                      >
+                        {visibleIds.has(k.sensor_id) ? (
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => copyKey(k.sensor_id, k.api_key)}
+                        className="text-slate-400 hover:text-cyan-500 shrink-0"
+                        title="클립보드 복사"
+                      >
+                        {copiedId === k.sensor_id ? (
+                          <svg className="w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <button
+                      onClick={() => regenerateKey(k.sensor_id)}
+                      disabled={regen === k.sensor_id}
+                      className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-40"
+                    >
+                      {regen === k.sensor_id ? '재발급 중...' : '키 재발급'}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* JSON 예시 */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">JSON 페이로드 예시</h3>
+        <pre className="text-xs font-mono bg-slate-50 dark:bg-[#0a0f1e] rounded-lg p-4 overflow-x-auto text-slate-600 dark:text-slate-400 leading-relaxed">{`POST /api/ingest
+X-API-Key: mqt_<센서 API 키>
+Content-Type: application/json
+
+{
+  "timestamp":        "2026-03-20T10:30:00.000Z",  // 생략 시 서버 시각
+  "vel_x_rms":        1.23,    // mm/s
+  "vel_y_rms":        0.98,
+  "vel_z_rms":        0.87,
+  "hf_accel_x_rms":   2.10,   // g
+  "kurtosis_x":       2.10,
+  "kurtosis_y":       1.90,
+  "kurtosis_z":       2.30,
+  "crest_x":          1.80,
+  "peak_vel_freq_x":  30.0,   // Hz
+  "temperature_c":    45.2,   // °C
+  "motor_running":    true,
+  "fft": [                     // FFT 스펙트럼 (선택)
+    {
+      "axis":          "x",
+      "fmax_hz":       500,
+      "resolution_hz": 1.0,
+      "rpm_measured":  1800,
+      "freq_bins":     [0, 1, 2, 3, ...],
+      "amp_bins":      [0.01, 0.02, 0.03, ...]
+    }
+  ]
+}`}</pre>
+      </div>
+    </div>
+  )
+}
+
 // ── 페이지 ────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -345,6 +550,7 @@ export default function SettingsPage() {
     <div key="user" className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 text-sm text-slate-500">
       사용자 관리 (준비 중)
     </div>,
+    <ApiKeyTab key="apikey" />,
   ]
 
   return (

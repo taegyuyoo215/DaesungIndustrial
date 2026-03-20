@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -28,13 +28,6 @@ interface FftApiResponse {
   peakTrend: { bucket: string; peak_x: number | null; peak_y: number | null; peak_z: number | null }[]
 }
 
-interface AnalyzeResult {
-  overall_status: 'normal' | 'early_warning' | 'warning'
-  alarm_created: boolean
-  diagnosis_created: boolean
-  fault_trend: FftTrendItem[]
-}
-
 type Axis = 'x' | 'y' | 'z'
 
 const AXES: { key: Axis; label: string }[] = [
@@ -45,29 +38,29 @@ const AXES: { key: Axis; label: string }[] = [
 
 type FmaxMode = 'auto' | 'all' | number
 
-const FMAX_MANUAL = [200, 500, 1000] as const
+const FMAX_MANUAL = [100, 200, 500] as const
 
 // ── 상태 설정 ─────────────────────────────────────────────
 const STATUS_CFG = {
   warning: {
     label: '경보', labelEn: 'WARNING',
-    bg: 'bg-red-950/50', border: 'border-red-800/50',
-    text: 'text-red-400', badge: 'bg-red-500 text-white',
-    desc: 'text-red-300',
+    bg: 'bg-red-50 dark:bg-red-950/50', border: 'border-red-300 dark:border-red-800/50',
+    text: 'text-red-600 dark:text-red-400', badge: 'bg-red-500 text-white',
+    desc: 'text-red-500 dark:text-red-300',
     icon: '⚠',
   },
   early_warning: {
     label: '조기경보', labelEn: 'EARLY WARNING',
-    bg: 'bg-amber-950/40', border: 'border-amber-800/40',
-    text: 'text-amber-400', badge: 'bg-amber-500 text-white',
-    desc: 'text-amber-300',
+    bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-300 dark:border-amber-800/40',
+    text: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-500 text-white',
+    desc: 'text-amber-500 dark:text-amber-300',
     icon: '↑',
   },
   normal: {
     label: '정상', labelEn: 'NORMAL',
-    bg: 'bg-emerald-950/30', border: 'border-emerald-800/30',
-    text: 'text-emerald-400', badge: 'bg-emerald-600 text-white',
-    desc: 'text-slate-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-300 dark:border-emerald-800/30',
+    text: 'text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-600 text-white',
+    desc: 'text-slate-500 dark:text-slate-400',
     icon: '✓',
   },
 }
@@ -81,10 +74,11 @@ const TREND_COLOR = {
 
 // ── 진단 배너 ─────────────────────────────────────────────
 function DiagBanner({
-  faultTrend, isDark,
+  faultTrend, isDark, autoSaved,
 }: {
   faultTrend: FftTrendItem[]
   isDark: boolean
+  autoSaved: boolean
 }) {
   const overallStatus =
     faultTrend.some(t => t.status === 'warning')       ? 'warning'
@@ -109,6 +103,11 @@ function DiagBanner({
                 </span>
               ))}
             </div>
+          )}
+          {autoSaved && overallStatus !== 'normal' && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'border-slate-600 text-slate-400' : 'border-slate-300 text-slate-500'}`}>
+              ✓ 진단 자동 저장됨
+            </span>
           )}
         </div>
         {overallStatus === 'normal' ? (
@@ -229,92 +228,6 @@ function FaultTrendTable({
   )
 }
 
-// ── FFT 진단 실행 버튼 ────────────────────────────────────
-function AnalyzeButton({
-  motorId, isDark, onResult,
-}: {
-  motorId: number
-  isDark: boolean
-  onResult: (r: AnalyzeResult) => void
-}) {
-  const [loading, setLoading] = useState(false)
-
-  const run = async () => {
-    setLoading(true)
-    try {
-      const res  = await fetch('/api/fft/analyze', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ motor_id: motorId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'analyze 실패')
-      onResult(data as AnalyzeResult)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '진단 실행 중 오류가 발생했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <button
-      onClick={run}
-      disabled={loading}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all
-        ${loading
-          ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-          : isDark
-            ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-900/30'
-            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'
-        }`}
-    >
-      {loading ? (
-        <>
-          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          분석 중...
-        </>
-      ) : (
-        <>
-          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M2 8h12M10 4l4 4-4 4" />
-          </svg>
-          FFT 진단 실행
-        </>
-      )}
-    </button>
-  )
-}
-
-// ── 분석 결과 알림 배너 ──────────────────────────────────
-function AnalyzeResultBanner({
-  result, isDark, onClose,
-}: {
-  result: AnalyzeResult
-  isDark: boolean
-  onClose: () => void
-}) {
-  const cfg = STATUS_CFG[result.overall_status]
-  return (
-    <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${cfg.bg} ${cfg.border}`}>
-      <span className={`text-lg mt-0.5 ${cfg.text}`}>{cfg.icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-bold ${cfg.text}`}>
-          FFT 진단 완료 — {cfg.label}
-        </p>
-        <div className={`text-xs mt-1 space-y-0.5 ${cfg.desc}`}>
-          {result.diagnosis_created && <p>· 진단 결과가 기록되었습니다.</p>}
-          {result.alarm_created     && <p>· 새 알람이 생성되었습니다 (알람 이력에서 확인 가능).</p>}
-          {!result.alarm_created && result.overall_status !== 'normal' &&
-            <p>· 동일 유형의 활성 알람이 이미 존재하여 중복 생성하지 않았습니다.</p>}
-          {result.overall_status === 'normal' &&
-            <p>· 이상 없음. 진단 기록 및 알람이 생성되지 않았습니다.</p>}
-        </div>
-      </div>
-      <button onClick={onClose} className={`shrink-0 text-sm ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>✕</button>
-    </div>
-  )
-}
 
 // ── 히스토리 비교 카드 ────────────────────────────────────
 function HistoryCards({
@@ -474,7 +387,8 @@ export default function FftPage() {
   const [selectedMotorId, setSelectedMotorId] = useState<number>(1)
   const [axis, setAxis] = useState<Axis>('x')
   const [fmaxMode, setFmaxMode] = useState<FmaxMode>('auto')
-  const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null)
+  const [autoSaved, setAutoSaved] = useState(false)
+  const autoAnalyzedRef = useRef<Set<number>>(new Set())
 
   const { data: motorsData } =
     useSWR<ApiResponse<MotorStatus[]>>('/api/motors', fetcher, { revalidateOnFocus: false })
@@ -490,6 +404,28 @@ export default function FftPage() {
   const latestSpectrum = fftData?.spectra[0]
   const bearingFreqs   = fftData?.bearingFreqs
   const faultTrend     = fftData?.faultTrend ?? []
+
+  // 이상 감지 시 자동으로 진단 저장
+  useEffect(() => {
+    if (!fftData || isLoading) return
+    if (autoAnalyzedRef.current.has(selectedMotorId)) return
+
+    const overallStatus =
+      faultTrend.some(t => t.status === 'warning')       ? 'warning'
+      : faultTrend.some(t => t.status === 'early_warning') ? 'early_warning'
+      : 'normal'
+
+    if (overallStatus === 'normal') return
+
+    autoAnalyzedRef.current.add(selectedMotorId)
+    fetch('/api/fft/analyze', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ motor_id: selectedMotorId }),
+    })
+      .then(() => setAutoSaved(true))
+      .catch(() => {})
+  }, [fftData, isLoading, selectedMotorId, faultTrend])
 
   // 스마트 fmax: BPFI × 2.5, 최소 300Hz, 50Hz 단위 올림
   const smartFmax = bearingFreqs
@@ -539,7 +475,7 @@ export default function FftPage() {
           <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>모터</span>
           <select
             value={selectedMotorId}
-            onChange={(e) => { setSelectedMotorId(Number(e.target.value)); setAnalyzeResult(null); setFmaxMode('auto') }}
+            onChange={(e) => { setSelectedMotorId(Number(e.target.value)); setAutoSaved(false); setFmaxMode('auto') }}
             className={`text-xs rounded-lg px-2.5 py-1.5 border font-medium outline-none cursor-pointer
               ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-cyan-600'
                        : 'bg-white border-slate-300 text-slate-700 hover:border-indigo-400'}`}
@@ -576,24 +512,7 @@ export default function FftPage() {
           </div>
         </div>
 
-        {/* FFT 진단 실행 버튼 */}
-        <div className="ml-auto">
-          <AnalyzeButton
-            motorId={selectedMotorId}
-            isDark={isDark}
-            onResult={(r) => { setAnalyzeResult(r); mutate() }}
-          />
-        </div>
       </div>
-
-      {/* 분석 실행 결과 */}
-      {analyzeResult && (
-        <AnalyzeResultBanner
-          result={analyzeResult}
-          isDark={isDark}
-          onClose={() => setAnalyzeResult(null)}
-        />
-      )}
 
       {/* 모터 정지 중 경고 배너 */}
       {fftData?.rawMetrics?.motor_running === false && (
@@ -611,7 +530,7 @@ export default function FftPage() {
 
       {/* 추세 기반 진단 배너 */}
       {!isLoading && faultTrend.length > 0 && (
-        <DiagBanner faultTrend={faultTrend} isDark={isDark} />
+        <DiagBanner faultTrend={faultTrend} isDark={isDark} autoSaved={autoSaved} />
       )}
 
       {/* 센서 현황 패널 */}
@@ -688,8 +607,8 @@ export default function FftPage() {
 
         {/* Peak 주파수 트렌드 */}
         <div className={`${card} p-4`}>
-          <p className={`${heading} mb-0.5`}>Peak 주파수 트렌드 (24h)</p>
-          <p className={`${sub} mb-3`}>시간별 진폭 최대 주파수 변화</p>
+          <p className={`${heading} mb-0.5`}>Peak 주파수 트렌드</p>
+          <p className={`${sub} mb-3`}>최근 50회 측정 기준 지배 주파수 변화</p>
 
           {fftData?.peakTrend && fftData.peakTrend.length > 0 ? (
             <>
@@ -701,6 +620,7 @@ export default function FftPage() {
                     tickFormatter={(v) => new Date(v).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                     tick={{ fill: axisColor, fontSize: 10 }}
                     axisLine={{ stroke: axisColor }} tickLine={false}
+                    interval={Math.max(0, Math.floor(fftData.peakTrend.length / 6) - 1)}
                   />
                   <YAxis
                     tick={{ fill: axisColor, fontSize: 10 }}
@@ -720,19 +640,16 @@ export default function FftPage() {
                     <ReferenceLine key={label} y={freq} stroke={color} strokeDasharray="4 3" strokeWidth={1}
                       label={{ value: label, position: 'right', fill: color, fontSize: 9 }} />
                   ))}
-                  <Line type="monotone" dataKey="peak_x" stroke="#22d3ee" strokeWidth={2} dot={false} name="X축" />
-                  <Line type="monotone" dataKey="peak_y" stroke="#a78bfa" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Y축" />
-                  <Line type="monotone" dataKey="peak_z" stroke="#6ee7b7" strokeWidth={1.5} dot={false} strokeDasharray="2 2" name="Z축" />
+                  <Line
+                    type="monotone"
+                    dataKey={`peak_${axis}`}
+                    stroke="#22d3ee"
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: '#22d3ee' }}
+                    name={`${axis.toUpperCase()}축`}
+                  />
                 </LineChart>
               </ResponsiveContainer>
-              <div className="flex gap-4 mt-2">
-                {[['#22d3ee','X축'],['#a78bfa','Y축'],['#6ee7b7','Z축']].map(([color, label]) => (
-                  <div key={label} className="flex items-center gap-1.5">
-                    <span className="w-3 h-0.5 inline-block rounded" style={{ backgroundColor: color }} />
-                    <span className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</span>
-                  </div>
-                ))}
-              </div>
             </>
           ) : (
             <div className="h-48 flex items-center justify-center">

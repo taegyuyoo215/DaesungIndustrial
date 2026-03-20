@@ -69,24 +69,30 @@ export async function GET(req: NextRequest) {
       ? computeFaultTrend(spectra, bearingFreqs)
       : []
 
-    // 5) Peak 주파수 트렌드 (24h, 1h 단위)
+    // 5) Peak 주파수 트렌드 — 분 단위 집계, null 제외 최근 50버킷
     const trendRes = await client.query(
-      `SELECT date_trunc('hour', m.time) AS bucket,
+      `SELECT date_trunc('minute', m.time) AS bucket,
               AVG(m.peak_vel_freq_x) AS peak_x,
               AVG(m.peak_vel_freq_y) AS peak_y,
               AVG(m.peak_vel_freq_z) AS peak_z
        FROM measurements m
        JOIN sensors s ON s.id = m.sensor_id
        WHERE s.motor_id = $1
-         AND m.time >= NOW() - INTERVAL '24 hours'
+         AND (m.peak_vel_freq_x IS NOT NULL
+           OR m.peak_vel_freq_y IS NOT NULL
+           OR m.peak_vel_freq_z IS NOT NULL)
        GROUP BY 1
-       ORDER BY 1 ASC`,
+       ORDER BY 1 DESC
+       LIMIT 50`,
       [motorId]
     )
 
-    // 6) 최신 raw 지표 1건 (센서 현황 패널용)
+    // 6) 최신 raw 지표 1건 (센서 현황 패널용) — 선택 축 기준
     const rawRes = await client.query(
-      `SELECT m.crest_x, m.hf_accel_x_rms, m.peak_vel_freq_x, m.motor_running
+      `SELECT m.crest_${axis}       AS crest,
+              m.hf_accel_${axis}_rms AS hf_accel_rms,
+              m.peak_vel_freq_${axis} AS peak_vel_freq,
+              m.motor_running
        FROM measurements m
        JOIN sensors s ON s.id = m.sensor_id
        WHERE s.motor_id = $1
@@ -96,10 +102,10 @@ export async function GET(req: NextRequest) {
     )
     const rawRow = rawRes.rows[0] ?? null
     const rawMetrics = rawRow ? {
-      crest_x:         rawRow.crest_x         != null ? parseFloat(String(rawRow.crest_x))         : null,
-      hf_accel_x_rms:  rawRow.hf_accel_x_rms  != null ? parseFloat(String(rawRow.hf_accel_x_rms))  : null,
-      peak_vel_freq_x: rawRow.peak_vel_freq_x  != null ? parseFloat(String(rawRow.peak_vel_freq_x)) : null,
-      motor_running:   rawRow.motor_running    as boolean | null,
+      crest_x:         rawRow.crest         != null ? parseFloat(String(rawRow.crest))         : null,
+      hf_accel_x_rms:  rawRow.hf_accel_rms  != null ? parseFloat(String(rawRow.hf_accel_rms))  : null,
+      peak_vel_freq_x: rawRow.peak_vel_freq  != null ? parseFloat(String(rawRow.peak_vel_freq)) : null,
+      motor_running:   rawRow.motor_running  as boolean | null,
     } : null
 
     return NextResponse.json({
@@ -108,7 +114,7 @@ export async function GET(req: NextRequest) {
       spectra,
       faultTrend,
       rawMetrics,
-      peakTrend: trendRes.rows.map((r) => ({
+      peakTrend: trendRes.rows.reverse().map((r) => ({
         bucket: r.bucket as string,
         peak_x: r.peak_x != null ? parseFloat(String(r.peak_x)) : null,
         peak_y: r.peak_y != null ? parseFloat(String(r.peak_y)) : null,
