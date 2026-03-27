@@ -56,3 +56,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const fpId = parseInt(req.nextUrl.searchParams.get('floor_plan_id') ?? '', 10)
+  const motorId = parseInt(req.nextUrl.searchParams.get('motor_id') ?? '', 10)
+
+  if (isNaN(fpId) || isNaN(motorId)) {
+    return NextResponse.json({ ok: false, error: '유효하지 않은 파라미터' }, { status: 400 })
+  }
+
+  try {
+    await query(`DELETE FROM motor_pins WHERE floor_plan_id = $1 AND motor_id = $2`, [fpId, motorId])
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[DELETE /api/floor-plan/pins]', err)
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
+}

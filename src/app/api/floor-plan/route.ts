@@ -86,14 +86,15 @@ export async function POST(req: NextRequest) {
     if (!name) return NextResponse.json({ ok: false, error: '도면 이름을 입력하세요.' }, { status: 400 })
     if (!file) return NextResponse.json({ ok: false, error: '파일을 첨부하세요.' }, { status: 400 })
 
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    if (ext !== 'pdf') {
-      return NextResponse.json({ ok: false, error: 'PDF 파일만 업로드 가능합니다.' }, { status: 400 })
+    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+    const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
+    if (!allowed.includes(ext)) {
+      return NextResponse.json({ ok: false, error: 'PDF 또는 이미지 파일(JPG, PNG, WebP)만 업로드 가능합니다.' }, { status: 400 })
     }
 
     await ensureDir()
 
-    const fileName = `${randomUUID()}.pdf`
+    const fileName = `${randomUUID()}.${ext}`
     const filePath = path.join(FLOOR_PLANS_DIR, fileName)
     const buf = await file.arrayBuffer()
     await writeFile(filePath, Buffer.from(buf))

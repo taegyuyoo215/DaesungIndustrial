@@ -264,3 +264,27 @@ export interface ApiError {
   error: string
   detail?: string
 }
+// ── 도면 및 핀 (지도 기반 대시보드) ────────────────────────
+export interface FloorPlan {
+  id: number
+  name: string
+  file_name: string
+  file_path?: string
+  page_count: number
+  created_at: string
+}
+
+export interface MotorPin {
+  id: number
+  motor_id: number
+  motor_name: string
+  location: string | null
+  floor_plan_id?: number
+  page: number
+  x_pct: number
+  y_pct: number
+  severity: Severity
+  vel_y_rms: number | null
+  temperature_c: number | null
+  fault_type: FaultType | null
+}

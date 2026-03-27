@@ -8,6 +8,7 @@ First, run the development server:
 npm run dev
 # or
 yarn dev
+# FA-IT 통합솔루션 모터 진단 플랫폼 (Access Test)
 # or
 pnpm dev
 # or

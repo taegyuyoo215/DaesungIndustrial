@@ -1,0 +1,10 @@
+export type Severity = 'normal' | 'warning' | 'critical'
+export type AlarmState = 'active' | 'acknowledged' | 'resolved'
+export type FaultType =
+  | 'bearing_outer'
+  | 'bearing_inner'
+  | 'imbalance'
+  | 'misalignment'
+  | 'looseness'
+  | 'overheat'
+  | 'normal'

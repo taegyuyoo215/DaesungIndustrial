@@ -90,9 +90,10 @@ interface FFTChartProps {
   /** 최대 표시 주파수 (기본: 전체) */
   fmaxDisplay?: number
   isDark?: boolean
+  height?: number
 }
 
-export default function FFTChart({ freqBins, ampBins, bearingFreqs, fmaxDisplay, isDark = true }: FFTChartProps) {
+export default function FFTChart({ freqBins, ampBins, bearingFreqs, fmaxDisplay, isDark = true, height = 300 }: FFTChartProps) {
   const bins = labelBins(freqBins, ampBins, bearingFreqs)
   const displayed = fmaxDisplay ? bins.filter((b) => b.freq <= fmaxDisplay) : bins
 
@@ -113,7 +114,7 @@ export default function FFTChart({ freqBins, ampBins, bearingFreqs, fmaxDisplay,
 
   return (
     <div className="w-full">
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={displayed} margin={{ top: 28, right: 24, bottom: 8, left: 4 }}
           barCategoryGap="2%">
           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />

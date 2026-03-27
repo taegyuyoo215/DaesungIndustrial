@@ -69,6 +69,15 @@ export default function ChatPanel() {
   ])
   const [input, setInput]     = useState('')
   const [loading, setLoading] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 }) 
+
+  const isDraggingRef = useRef(false)
+  const movedRef = useRef(false) // 실제 이동 발생 여부
+  const dragStartRef = useRef({ x: 0, y: 0 })
+  const lastPosRef = useRef({ x: 0, y: 0 })
+  const mouseDownStartPosRef = useRef({ x: 0, y: 0 }) // 초기 클릭 위치
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const panelWrapperRef = useRef<HTMLDivElement>(null)
 
   const bottomRef  = useRef<HTMLDivElement>(null)
   const inputRef   = useRef<HTMLTextAreaElement>(null)
@@ -77,6 +86,11 @@ export default function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // 보관된 위치 동기화
+  useEffect(() => {
+    lastPosRef.current = position
+  }, [position])
 
   // 패널 열릴 때 input 포커스
   useEffect(() => {
@@ -164,6 +178,64 @@ export default function ChatPanel() {
     }
   }, [messages, loading])
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // textarea, input, 그리고 헤더 내부의 클릭 가능한 요소들(닫기 버튼 등) 클릭 시에는 드래그 방지
+    if ((e.target as HTMLElement).closest('textarea, input, button:not(#ai-chat-main-button)')) {
+      if (!(e.target as HTMLElement).closest('.drag-handle')) return
+    }
+    
+    isDraggingRef.current = true
+    movedRef.current = false
+    dragStartRef.current = { x: e.clientX - lastPosRef.current.x, y: e.clientY - lastPosRef.current.y }
+    mouseDownStartPosRef.current = { x: e.clientX, y: e.clientY }
+    e.preventDefault()
+  }
+
+  useEffect(() => {
+    let animationFrameId: number
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+
+      const move = () => {
+        const x = e.clientX - dragStartRef.current.x
+        const y = e.clientY - dragStartRef.current.y
+        lastPosRef.current = { x, y }
+        
+        // 이동 거리 임계값 체크 (5px 이상 움직이면 드래그로 간주)
+        if (Math.abs(e.clientX - mouseDownStartPosRef.current.x) > 5 || Math.abs(e.clientY - mouseDownStartPosRef.current.y) > 5) {
+          movedRef.current = true
+        }
+
+        if (buttonRef.current) {
+          buttonRef.current.style.transform = `translate(${x}px, ${y}px)`
+        }
+        if (panelWrapperRef.current) {
+          panelWrapperRef.current.style.transform = `translate(${x}px, ${y}px)`
+        }
+      }
+
+      cancelAnimationFrame(animationFrameId)
+      animationFrameId = requestAnimationFrame(move)
+    }
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        setPosition({ ...lastPosRef.current })
+        isDraggingRef.current = false
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      cancelAnimationFrame(animationFrameId)
+    }
+  }, [])
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -175,13 +247,22 @@ export default function ChatPanel() {
     <>
       {/* 플로팅 버튼 */}
       <button
-        onClick={() => setOpen(o => !o)}
-        className={`fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 ${
+        ref={buttonRef}
+        id="ai-chat-main-button"
+        className={`fixed bottom-6 right-6 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-[background-color,opacity,box-shadow,transform] duration-300 cursor-grab active:cursor-grabbing ${
           open
-            ? 'bg-slate-700 dark:bg-slate-600 text-slate-300 rotate-90'
-            : 'bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/30'
+            ? 'bg-slate-700 dark:bg-slate-600 text-slate-300 opacity-100'
+            : 'bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/30 opacity-40 hover:opacity-100'
         }`}
-        title="AI 어시스턴트"
+        style={{ transform: `translate(${position.x}px, ${position.y}px)`, zIndex: 9999 }}
+        onMouseDown={handleMouseDown}
+        onClick={() => {
+          // 실제로 이동하지 않았을 때만(단순 클릭) 토글
+          if (!movedRef.current) {
+            setOpen(o => !o)
+          }
+        }}
+        title="드래그하여 이동 / 클릭하여 열기"
       >
         {open ? (
           // ✕
@@ -196,23 +277,43 @@ export default function ChatPanel() {
         )}
       </button>
 
-      {/* 채팅 패널 */}
-      <div className={`fixed bottom-22 right-6 z-40 w-80 sm:w-96 transition-all duration-300 origin-bottom-right ${
-        open ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0 pointer-events-none'
-      }`}>
+      <div 
+        ref={panelWrapperRef}
+        onMouseDown={handleMouseDown}
+        className={`fixed bottom-22 right-6 w-80 sm:w-96 transition-[opacity,scale] duration-300 origin-bottom-right cursor-default ${
+          open ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0 pointer-events-none'
+        }`}
+        style={{ transform: `translate(${position.x}px, ${position.y}px)`, zIndex: 9999 }}
+      >
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl dark:shadow-slate-900/60 flex flex-col overflow-hidden"
           style={{ height: '520px' }}
         >
 
-          {/* 헤더 */}
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800 shrink-0">
-            <div className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs font-bold">
-              AI
+          {/* 헤더 (드래그 핸들 역할) */}
+          <div 
+            onMouseDown={handleMouseDown}
+            className="drag-handle flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-[#0a0f1e] border-b border-slate-200 dark:border-slate-800 shrink-0 cursor-grab active:cursor-grabbing select-none"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs font-bold">
+                AI
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">MOTOR-IQ 어시스턴트</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">실시간 설비 데이터 기반 응답</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">MOTOR-IQ 어시스턴트</p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500">실시간 설비 데이터 기반 응답</p>
-            </div>
+            
+            {/* 나가기 버튼 */}
+            <button 
+              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              title="닫기"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
+              </svg>
+            </button>
           </div>
 
           {/* 메시지 영역 */}

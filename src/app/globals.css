@@ -29,7 +29,11 @@ body {
   display: block;
 }
 
-/* 편집 모드일 때만 드래그 핸들 활성화 */
+/* 편집 모드일 때만 드래그 핸들 활성화 및 위젯 레이급 상향 */
+.react-grid-item.react-draggable,
+.react-grid-item.react-resizable {
+  z-index: 100 !important;
+}
 .react-grid-item.react-draggable .widget-drag-handle {
   cursor: grab;
 }
@@ -40,7 +44,41 @@ body {
 .react-resizable-handle {
   position: absolute;
   opacity: 0;
-  z-index: 10;
+  z-index: 99999 !important;
+  transition: all 0.2s;
+  pointer-events: auto !important;
+}
+
+/* 편집 모드에서 리사이즈 핸들 강제 노출 및 영역 확대 */
+.react-grid-item.react-draggable .react-resizable-handle,
+.react-grid-item.react-resizable .react-resizable-handle {
+  opacity: 0.5;
+}
+.react-grid-item.react-draggable .react-resizable-handle:hover,
+.react-grid-item.react-resizable .react-resizable-handle:hover {
+  opacity: 1;
+}
+.react-grid-item.react-draggable .react-resizable-handle-se,
+.react-grid-item.react-resizable .react-resizable-handle-se {
+  bottom: 0px !important;
+  right: 0px !important;
+  width: 44px !important;
+  height: 44px !important;
+  cursor: se-resize !important;
+  background: rgba(6, 182, 212, 0.05); /* 투명한 강조 영역 */
+}
+.react-grid-item.react-draggable .react-resizable-handle-se::after,
+.react-grid-item.react-resizable .react-resizable-handle-se::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 18px;
+  height: 18px;
+  border-right: 5px solid #06b6d4;
+  border-bottom: 5px solid #06b6d4;
+  border-radius: 0 0 8px 0;
+  box-shadow: 2px 2px 12px rgba(0,0,0,0.4);
 }
 
 /* ── 모서리 핸들 ── */

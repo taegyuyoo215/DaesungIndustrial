@@ -20,10 +20,16 @@ export async function GET(req: NextRequest) {
     if (!existsSync(row.file_path)) return NextResponse.json({ ok: false, error: '파일이 없습니다.' }, { status: 404 })
 
     const buf = await readFile(row.file_path)
+    const ext = row.file_path.split('.').pop()?.toLowerCase()
+    
+    let contentType = 'application/pdf'
+    if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg'
+    else if (ext === 'png') contentType = 'image/png'
+    else if (ext === 'webp') contentType = 'image/webp'
 
     return new Response(buf, {
       headers: {
-        'Content-Type':        'application/pdf',
+        'Content-Type':        contentType,
         'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(row.file_name)}`,
         'Cache-Control':       'private, max-age=3600',
       },

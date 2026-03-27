@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import MapUpload from '@/map_components/MapUpload'
 import useSWR from 'swr'
-import dynamic from 'next/dynamic'
 import { fetcher } from '@/lib/fetcher'
 import type { Sensor, Threshold, Motor, ApiResponse } from '@/types'
-
-const MapUpload = dynamic(() => import('@/map_components/MapUpload'), { ssr: false })
 
 const tabs = ['센서 관리', '임계값 설정', '도면 관리', '알림 설정', '사용자 관리', 'API 키 관리']
 
@@ -49,7 +47,6 @@ function SensorManagementTab() {
 
   return (
     <div className="space-y-6">
-      {/* 등록된 센서 목록 */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -165,8 +162,6 @@ function ThresholdTab() {
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
         ISO 10816 기준값이 기본으로 적용됩니다. 모터 특성에 따라 개별 조정이 가능합니다.
       </div>
-
-      {/* 현재 임계값 목록 */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/60">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">현재 임계값 목록</h3>
@@ -210,8 +205,6 @@ function ThresholdTab() {
           </tbody>
         </table>
       </div>
-
-      {/* 임계값 편집 */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
         <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">임계값 추가 / 수정</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -313,7 +306,6 @@ function NotificationTab() {
           ))}
         </div>
       </div>
-
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
         <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">수신자 목록</h3>
         <div className="space-y-2 mb-4">
@@ -389,7 +381,6 @@ function ApiKeyTab() {
 
   return (
     <div className="space-y-6">
-      {/* 안내 */}
       <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/40 rounded-xl p-4">
         <p className="text-sm font-semibold text-cyan-700 dark:text-cyan-400 mb-1">실센서 연동 방법</p>
         <p className="text-xs text-cyan-600 dark:text-cyan-500 mb-2">
@@ -410,8 +401,6 @@ function ApiKeyTab() {
           헤더: <code className="font-mono bg-cyan-100 dark:bg-cyan-900/40 px-1 rounded">X-API-Key: &lt;센서 API 키&gt;</code>
         </p>
       </div>
-
-      {/* 키 목록 */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/60">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -468,7 +457,6 @@ function ApiKeyTab() {
                       <button
                         onClick={() => toggleVisible(k.sensor_id)}
                         className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
-                        title={visibleIds.has(k.sensor_id) ? '숨기기' : '표시'}
                       >
                         {visibleIds.has(k.sensor_id) ? (
                           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -479,7 +467,6 @@ function ApiKeyTab() {
                       <button
                         onClick={() => copyKey(k.sensor_id, k.api_key)}
                         className="text-slate-400 hover:text-cyan-500 shrink-0"
-                        title="클립보드 복사"
                       >
                         {copiedId === k.sensor_id ? (
                           <svg className="w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
@@ -504,39 +491,6 @@ function ApiKeyTab() {
           </tbody>
         </table>
       </div>
-
-      {/* JSON 예시 */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">JSON 페이로드 예시</h3>
-        <pre className="text-xs font-mono bg-slate-50 dark:bg-[#0a0f1e] rounded-lg p-4 overflow-x-auto text-slate-600 dark:text-slate-400 leading-relaxed">{`POST /api/ingest
-X-API-Key: mqt_<센서 API 키>
-Content-Type: application/json
-
-{
-  "timestamp":        "2026-03-20T10:30:00.000Z",  // 생략 시 서버 시각
-  "vel_x_rms":        1.23,    // mm/s
-  "vel_y_rms":        0.98,
-  "vel_z_rms":        0.87,
-  "hf_accel_x_rms":   2.10,   // g
-  "kurtosis_x":       2.10,
-  "kurtosis_y":       1.90,
-  "kurtosis_z":       2.30,
-  "crest_x":          1.80,
-  "peak_vel_freq_x":  30.0,   // Hz
-  "temperature_c":    45.2,   // °C
-  "motor_running":    true,
-  "fft": [                     // FFT 스펙트럼 (선택)
-    {
-      "axis":          "x",
-      "fmax_hz":       500,
-      "resolution_hz": 1.0,
-      "rpm_measured":  1800,
-      "freq_bins":     [0, 1, 2, 3, ...],
-      "amp_bins":      [0.01, 0.02, 0.03, ...]
-    }
-  ]
-}`}</pre>
-      </div>
     </div>
   )
 }
@@ -549,9 +503,7 @@ export default function SettingsPage() {
   const tabContents = [
     <SensorManagementTab key="sensor" />,
     <ThresholdTab key="threshold" />,
-    <div key="map" className="space-y-6">
-      <MapUpload />
-    </div>,
+    <MapUpload key="map" />,
     <NotificationTab key="notification" />,
     <div key="user" className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 text-sm text-slate-500">
       사용자 관리 (준비 중)
@@ -566,7 +518,6 @@ export default function SettingsPage() {
         <p className="text-sm text-slate-500 mt-1">센서, 임계값, 알림 설정을 관리합니다</p>
       </div>
 
-      {/* 탭 */}
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800 mb-6">
         {tabs.map((tab, i) => (
           <button
