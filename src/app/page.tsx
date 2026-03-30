@@ -563,6 +563,7 @@ function MotorDashboard({
 
 export default function DashboardPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedFpId, setSelectedFpId] = useState<number | null>(null) // 도면 ID
   const [viewMode, setViewMode] = useState<'map' | 'dashboard'>('map')
   const [trendRange, setTrendRange] = useState<TrendRangeKey>('1h')
   const [isEditing, setIsEditing] = useState(false)
@@ -585,7 +586,52 @@ export default function DashboardPage() {
   const { data: detailRes, isLoading: detailLoading } = useSWR<{ data: MotorDetailData }>(selectedId ? `/api/motors/${selectedId}` : null, fetcher)
   const rangeOpt = TREND_RANGE_OPTIONS.find(r => r.key === trendRange)!
   const { data: trendRes } = useSWR<{ data: TrendRow[] }>(selectedId ? `/api/motors/${selectedId}/measurements?hours=${rangeOpt.hours}&bucket=${rangeOpt.bucket}&anchor=latest` : null, fetcher)
-  const { data: fpRes } = useSWR<{ ok: boolean, floorPlan: FloorPlan | null, pins: MotorPin[] }>('/api/floor-plan', fetcher)
+  
+  // 도면 목록 및 상세 데이터
+  const { data: fpListRes } = useSWR<{ ok: boolean, list: FloorPlan[] }>('/api/floor-plan', fetcher)
+  const fpList = fpListRes?.list || []
+  const [isAutoCycling, setIsAutoCycling] = useState(false)
+  const [autoCycleInterval, setAutoCycleInterval] = useState(10000) // 기본 10초
+
+  // 자동 전환(Auto-Cycling) 로직
+  useEffect(() => {
+    if (!isAutoCycling || fpList.length <= 1) return
+
+    const timer = setInterval(() => {
+      setSelectedFpId(prev => {
+        const currentIndex = fpList.findIndex(fp => fp.id === prev)
+        const nextIndex = (currentIndex + 1) % fpList.length
+        return fpList[nextIndex].id
+      })
+    }, autoCycleInterval)
+
+    return () => clearInterval(timer)
+  }, [isAutoCycling, fpList.length, autoCycleInterval])
+
+  const globalStats = useMemo(() => {
+    // motors 목록에서 직접 상태별 개수 집계 (가장 정확함)
+    const motorCritical = motors.filter(m => m.severity === 'critical').length
+    const motorWarning = motors.filter(m => m.severity === 'warning').length
+    const motorNormal = motors.filter(m => !m.severity || m.severity === 'normal').length
+
+    return {
+      critical: motorCritical,
+      warning: motorWarning,
+      normal: motorNormal
+    }
+  }, [fpList, motors])
+
+  useEffect(() => {
+    const list = fpListRes?.list
+    if (list && list.length > 0 && selectedFpId === null) {
+      setSelectedFpId(list[0].id)
+    }
+  }, [fpListRes?.list, selectedFpId])
+
+  const { data: fpDetailRes } = useSWR<{ ok: boolean, floorPlan: FloorPlan, pins: MotorPin[] }>(
+    selectedFpId ? `/api/floor-plan?id=${selectedFpId}` : null,
+    fetcher
+  )
 
   const handlePinClick = useCallback((id: number) => {
     setSelectedId(id)
@@ -593,6 +639,8 @@ export default function DashboardPage() {
   }, [])
 
   if (!mounted) return null
+
+  const showFpTabs = viewMode === 'map' && fpList.length > 0
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
@@ -610,6 +658,102 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {showFpTabs && (
+        <div className="flex flex-col border-b border-slate-200/50 bg-white/50 dark:bg-slate-900/50">
+          {/* 전체 현황 요약 바 */}
+          <div className="flex items-center gap-4 px-6 py-2 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">장비 통합 현황</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[10px] font-black text-red-600 dark:text-red-400">{globalStats.critical} 위험</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span className="text-[10px] font-black text-amber-600 dark:text-amber-400">{globalStats.warning} 주의</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">{globalStats.normal} 정상</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* 도면 선택 탭 */}
+          <div className="flex items-center gap-2 overflow-x-auto px-6 py-2.5 thin-scrollbar">
+            {/* 자동 전환 컨트롤 */}
+            <div className="flex items-center gap-1.5 pr-4 border-r border-slate-200 dark:border-slate-800 mr-2 shrink-0">
+              <button
+                onClick={() => setIsAutoCycling(!isAutoCycling)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all active:scale-95 shadow-sm border
+                  ${isAutoCycling 
+                    ? 'bg-blue-600 border-blue-500 text-white animate-pulse' 
+                    : 'bg-white dark:bg-slate-900 border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                title={isAutoCycling ? "정지" : "자동 전환 시작"}
+              >
+                {isAutoCycling ? (
+                  <>
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h4V4z"/></svg>
+                    AUTO
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    CYCLE
+                  </>
+                )}
+              </button>
+              
+              <select
+                value={autoCycleInterval}
+                onChange={(e) => setAutoCycleInterval(Number(e.target.value))}
+                className="bg-slate-100 dark:bg-slate-800 border-none text-[9px] font-bold text-slate-500 rounded-md px-1.5 py-1 focus:ring-0 cursor-pointer"
+              >
+                <option value={5000}>5s</option>
+                <option value={10000}>10s</option>
+                <option value={30000}>30s</option>
+                <option value={60000}>1m</option>
+              </select>
+            </div>
+
+            {fpList.map((fp: any) => (
+              <button
+                key={fp.id}
+                onClick={() => {
+                  setSelectedFpId(fp.id)
+                  setIsAutoCycling(false) // 수동 클릭 시 자동 전환 해제
+                }}
+                className={`flex items-center gap-3 px-4 py-1.5 rounded-full text-[11px] font-black transition-all border whitespace-nowrap active:scale-95 shadow-sm
+                  ${selectedFpId === fp.id 
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20' 
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className={`w-3 h-3 ${selectedFpId === fp.id ? 'text-blue-200' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  {fp.name}
+                </div>
+                
+                {/* 상태 배지 */}
+                {(fp.critical_count > 0 || fp.warning_count > 0) && (
+                  <div className="flex items-center gap-1 ml-1">
+                    {fp.critical_count > 0 && (
+                      <span className={`flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full text-[8px] font-black leading-none ${selectedFpId === fp.id ? 'bg-white text-red-600' : 'bg-red-500 text-white'}`}>
+                        {fp.critical_count}
+                      </span>
+                    )}
+                    {fp.warning_count > 0 && (
+                      <span className={`flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full text-[8px] font-black leading-none ${selectedFpId === fp.id ? 'bg-white text-amber-600' : 'bg-amber-500 text-white'}`}>
+                        {fp.warning_count}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {viewMode === 'dashboard' && (
         <div className="flex items-center gap-2 overflow-x-auto px-6 py-3 bg-white/60 dark:bg-slate-900/60 border-b border-slate-200/50 shrink-0 thin-scrollbar">
           {motors.map(m => <MotorChip key={m.id} motor={m} selected={selectedId === m.id} onClick={() => setSelectedId(m.id)} />)}
@@ -618,12 +762,12 @@ export default function DashboardPage() {
 
       <div className="flex-1 min-h-0 relative">
         {viewMode === 'map' ? (
-          fpRes?.floorPlan ? (
-            <FloorPlanView floorPlan={fpRes.floorPlan} pins={fpRes.pins} onPinClick={handlePinClick} />
+          fpDetailRes?.floorPlan ? (
+            <FloorPlanView floorPlan={fpDetailRes.floorPlan} pins={fpDetailRes.pins} onPinClick={handlePinClick} />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-4">
-              <p className="text-[10px] font-black uppercase tracking-widest">Floor Plan Not Found</p>
-              <Link href="/settings" className="px-5 py-2 bg-blue-600 text-white rounded-full text-xs font-bold">도면 등록하기</Link>
+              <p className="text-[10px] font-black uppercase tracking-widest">Floor Plan Loading...</p>
+              <Link href="/settings" className="px-5 py-2 bg-blue-600 text-white rounded-full text-xs font-bold">도면 관리 이동</Link>
             </div>
           )
         ) : (

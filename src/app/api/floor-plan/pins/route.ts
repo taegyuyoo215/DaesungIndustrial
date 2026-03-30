@@ -7,10 +7,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
-  const fpId = parseInt(req.nextUrl.searchParams.get('floor_plan_id') ?? '', 10)
-  if (isNaN(fpId)) return NextResponse.json({ ok: false, error: '유효하지 않은 floor_plan_id' }, { status: 400 })
+  const fpIdStr = req.nextUrl.searchParams.get('floor_plan_id')
+  const fpId = fpIdStr ? parseInt(fpIdStr, 10) : NaN
 
   try {
+    if (isNaN(fpId)) {
+      // floor_plan_id가 없으면 전체 핀 목록 반환 (중복 체크용)
+      const pins = await query<{ id: number; floor_plan_id: number; motor_id: number }>(
+        `SELECT id, floor_plan_id, motor_id FROM motor_pins ORDER BY id`
+      )
+      return NextResponse.json({ ok: true, pins })
+    }
+
     const pins = await query<{ id: number; motor_id: number; page: number; x_pct: number; y_pct: number }>(
       `SELECT id, motor_id, page, x_pct::float, y_pct::float FROM motor_pins WHERE floor_plan_id = $1 ORDER BY id`,
       [fpId]
@@ -30,6 +38,13 @@ export async function POST(req: NextRequest) {
     if (!floor_plan_id || !motor_id || x_pct == null || y_pct == null) {
       return NextResponse.json({ ok: false, error: '필수 파라미터가 누락되었습니다.' }, { status: 400 })
     }
+
+    // [중복 방지 핵심 로직] 
+    // 동일한 motor_id가 다른 floor_plan_id에 존재하면 삭제 (이동 처리)
+    await query(
+      `DELETE FROM motor_pins WHERE motor_id = $1 AND floor_plan_id != $2`,
+      [motor_id, floor_plan_id]
+    )
 
     // 이미 해당 도면에 같은 모터가 있으면 위치 업데이트
     const existing = await queryOne<{ id: number }>(

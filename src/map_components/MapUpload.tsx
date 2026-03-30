@@ -9,8 +9,22 @@ import type { FloorPlan, Motor, MotorPin, ApiResponse } from '@/types'
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 export default function MapUpload() {
-  const { data: fpRes, mutate: mutateFP } = useSWR<{ ok: boolean, floorPlan: FloorPlan | null, pins: MotorPin[] }>('/api/floor-plan', fetcher)
+  // 1. 도면 목록 조회
+  const { data: listRes, mutate: mutateList } = useSWR<{ ok: boolean, list: FloorPlan[] }>('/api/floor-plan', fetcher)
+  const floorPlans = listRes?.list || []
+
+  // 2. 선택된 도면 ID 상태 (기본값: 최신 도면)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+
+  // 상세 데이터 조회 (선택된 ID가 있을 때만)
+  const { data: fpRes, mutate: mutateFP } = useSWR<{ ok: boolean, floorPlan: FloorPlan | null, pins: MotorPin[] }>(
+    selectedId ? `/api/floor-plan?id=${selectedId}` : null,
+    fetcher
+  )
+
   const { data: motorRes } = useSWR<ApiResponse<Motor[]>>('/api/motors', fetcher)
+  const { data: allPinsRes, mutate: mutateAllPins } = useSWR<{ ok: boolean, pins: any[] }>('/api/floor-plan/pins', fetcher)
+  const allPins = allPinsRes?.pins || []
 
   const [uploading, setUploading] = useState(false)
   const [pageNumber, setPageNumber] = useState(1)
@@ -28,19 +42,27 @@ export default function MapUpload() {
   const pins = fpRes?.pins || []
   const motors = motorRes?.data || []
 
-  // 초기 데이터 로드 시 localPins 동기화
+  // 초기 로드 시 가장 최근 도면 자동 선택
   useEffect(() => {
-    if (pins && pins.length > 0) {
-      setLocalPins(pins)
+    const list = listRes?.list
+    if (list && list.length > 0 && selectedId === null) {
+      setSelectedId(list[0].id)
+    }
+  }, [listRes?.list, selectedId])
+
+  // 데이터 로드 시 localPins 동기화
+  useEffect(() => {
+    if (fpRes?.pins) {
+      setLocalPins(fpRes.pins)
       setDeletedMotorIds(new Set())
       setHasChanges(false)
     }
-  }, [pins])
+  }, [fpRes?.pins])
 
-  // 아직 핀이 꽂히지 않은 모터들 (localPins 기준)
+  // 아직 어떤 도면에도 핀이 꽂히지 않은 모터들 (전체 allPins 기준)
   const unmappedMotors = useMemo(() => {
-    return motors.filter(m => !localPins.some(p => p.motor_id === m.id))
-  }, [motors, localPins])
+    return motors.filter(m => !allPins.some((p: any) => p.motor_id === m.id))
+  }, [motors, allPins])
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -56,12 +78,13 @@ export default function MapUpload() {
 
     try {
       const res = await fetch('/api/floor-plan', { method: 'POST', body: form })
+      const result = await res.json()
       if (res.ok) {
-        await mutateFP()
+        await mutateList()
+        setSelectedId(result.id) // 새로 업로드한 도면 자동 선택
         alert('도면이 업로드되었습니다.')
       } else {
-        const err = await res.json()
-        alert(`업로드 실패: ${err.error}`)
+        alert(`업로드 실패: ${result.error}`)
       }
     } catch (err) {
       alert(`업로드 오류: ${err}`)
@@ -145,6 +168,7 @@ export default function MapUpload() {
       ))
 
       await mutateFP()
+      await mutateAllPins() // 전체 핀 정보도 함께 갱신하여 미배치 목록 업데이트
       setHasChanges(false)
       setDeletedMotorIds(new Set())
       alert('설정이 성공적으로 저장되었습니다.')
@@ -166,8 +190,18 @@ export default function MapUpload() {
   // deleteMap 함수 (기존 코드 유지)
   async function deleteMap() {
     if (!floorPlan || !confirm('도면을 삭제하시겠습니까? 관련 핀 데이터도 모두 사라질 수 있습니다.')) return
-    await fetch(`/api/floor-plan?id=${floorPlan.id}`, { method: 'DELETE' })
-    await mutateFP()
+    
+    setUploading(true)
+    try {
+      const res = await fetch(`/api/floor-plan?id=${floorPlan.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        await mutateList()
+        setSelectedId(null)
+        alert('도면이 삭제되었습니다.')
+      }
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -184,26 +218,61 @@ export default function MapUpload() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[600px]">
-        {/* 왼쪽: 미할당 모터 목록 (기존 코드 유지) */}
-        <div className="w-full lg:w-64 shrink-0 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[200px]">
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-[#0a0f1e]">
-            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">배치 안 된 모터 ({unmappedMotors.length})</h4>
+        {/* 왼쪽: 미할당 모터 목록 + 도면 목록 */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
+          {/* 도면 선택 섹션 */}
+          <div className="flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden h-[240px]">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-[#0a0f1e] flex justify-between items-center">
+              <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">도면 라이브러리 ({floorPlans.length})</h4>
+              <label className="cursor-pointer text-blue-500 hover:text-blue-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"/></svg>
+                <input type="file" className="hidden" accept=".pdf,image/*" onChange={handleUpload} disabled={uploading} />
+              </label>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {floorPlans.map(fp => (
+                <button
+                  key={fp.id}
+                  onClick={() => {
+                    if (hasChanges && !confirm('변경사항이 저장되지 않았습니다. 이동하시겠습니까?')) return
+                    setSelectedId(fp.id)
+                  }}
+                  className={`w-full text-left p-2.5 rounded-lg transition-all text-xs flex flex-col gap-0.5
+                    ${selectedId === fp.id 
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 font-bold' 
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 border border-transparent'}`}
+                >
+                  <span className="truncate">{fp.name}</span>
+                  <span className="text-[9px] opacity-50 font-normal">{new Date(fp.created_at).toLocaleDateString()}</span>
+                </button>
+              ))}
+              {floorPlans.length === 0 && (
+                <p className="text-[10px] text-slate-400 text-center py-10">등록된 도면이 없습니다.</p>
+              )}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {unmappedMotors.map(m => (
-              <div
-                key={m.id}
-                draggable
-                onDragStart={() => setDraggingMotorId(m.id)}
-                className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg cursor-grab active:cursor-grabbing hover:border-blue-400 dark:hover:border-blue-600 transition-colors shadow-sm"
-              >
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{m.name}</p>
-                <p className="text-[10px] text-slate-400 mt-1 truncate">{m.location || '-'}</p>
-              </div>
-            ))}
-            {unmappedMotors.length === 0 && (
-              <p className="text-[10px] text-slate-400 text-center py-10">모든 모터가 배치되었습니다.</p>
-            )}
+
+          {/* 모터 목록 */}
+          <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[200px]">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-[#0a0f1e]">
+              <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">미배치 모터 ({unmappedMotors.length})</h4>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {unmappedMotors.map(m => (
+                <div
+                  key={m.id}
+                  draggable
+                  onDragStart={() => setDraggingMotorId(m.id)}
+                  className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg cursor-grab active:cursor-grabbing hover:border-blue-400 dark:hover:border-blue-600 transition-colors shadow-sm"
+                >
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{m.name}</p>
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">{m.location || '-'}</p>
+                </div>
+              ))}
+              {unmappedMotors.length === 0 && (
+                <p className="text-[10px] text-slate-400 text-center py-10">모든 모터가 배치되었습니다.</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -225,27 +294,29 @@ export default function MapUpload() {
                 onDrop={handleDrop}
                 className="flex-1 overflow-auto p-4 flex justify-center items-center bg-slate-200/40 dark:bg-slate-950/40"
               >
-                <div ref={innerMapRef} className="relative bg-white shadow-2xl">
-                  {isImage ? (
-                    <img
-                      src={`/api/floor-plan/file?id=${floorPlan.id}`}
-                      alt={floorPlan.name}
-                      style={{ width: '1600px', height: 'auto' }}
-                      className="block"
-                    />
-                  ) : (
-                    <Document
-                      file={`/api/floor-plan/file?id=${floorPlan.id}`}
-                      onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                    >
-                      <Page
-                        pageNumber={pageNumber}
-                        width={1600}
-                        renderAnnotationLayer={false}
-                        renderTextLayer={false}
+                <div ref={innerMapRef} className="relative w-fit h-fit bg-white shadow-2xl shrink-0">
+                  <div className="dark:invert dark:hue-rotate-180 dark:brightness-[0.85] dark:contrast-[1.1]">
+                    {isImage ? (
+                      <img
+                        src={`/api/floor-plan/file?id=${floorPlan.id}`}
+                        alt={floorPlan.name}
+                        style={{ width: '1600px', height: 'auto' }}
+                        className="block"
                       />
-                    </Document>
-                  )}
+                    ) : (
+                      <Document
+                        file={`/api/floor-plan/file?id=${floorPlan.id}`}
+                        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                      >
+                        <Page
+                          pageNumber={pageNumber}
+                          width={1600}
+                          renderAnnotationLayer={false}
+                          renderTextLayer={false}
+                        />
+                      </Document>
+                    )}
+                  </div>
 
                   {/* 배치된 핀 레이어 */}
                   {localPins.filter(p => isImage ? true : p.page === pageNumber).map(pin => (

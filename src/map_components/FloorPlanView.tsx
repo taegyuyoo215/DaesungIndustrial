@@ -30,7 +30,57 @@ const RING_COLORS: Record<string, string> = {
 export default function FloorPlanView({ floorPlan, pins, onPinClick }: FloorPlanViewProps) {
   const [numPages, setNumPages] = useState<number>(0)
   const [pageNumber, setPageNumber] = useState<number>(1)
-  const [scale, setScale] = useState<number>(1.5)
+  const [scale, setScale] = useState<number>(1.0)
+  const [intrinsicWidth, setIntrinsicWidth] = useState<number>(1600)
+  const [intrinsicHeight, setIntrinsicHeight] = useState<number>(900)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const lastFitId = useRef<number | null>(null)
+
+  // 화면 너비/높이에 맞게 배율 계산 및 적용 함수
+  const fitToScreen = (contentWidth: number, contentHeight: number) => {
+    if (!containerRef.current || contentWidth <= 0 || contentHeight <= 0) return
+    const { offsetWidth, offsetHeight } = containerRef.current
+    
+    if (offsetWidth > 0 && offsetHeight > 0) {
+      const padding = 44
+      const availableWidth = offsetWidth - padding
+      const availableHeight = offsetHeight - padding
+      
+      const widthScale = availableWidth / contentWidth
+      const heightScale = availableHeight / contentHeight
+      
+      // 가로/세로 중 더 작은 배율을 선택하여 둘 다 화면에 들어오게 함
+      const fitScale = Math.min(Math.max(Math.min(widthScale, heightScale), 0.1), 1.5)
+      
+      setScale(fitScale)
+      lastFitId.current = floorPlan.id // 도면별 1회 자동 실행 완료 표시
+    }
+  }
+
+  useEffect(() => {
+    setPageNumber(1)
+    // 도면 변경 시 배율 계산 플래그 초기화
+    lastFitId.current = null
+  }, [floorPlan.id])
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth, naturalHeight } = e.currentTarget
+    if (naturalWidth > 0 && naturalHeight > 0 && lastFitId.current !== floorPlan.id) {
+      setIntrinsicWidth(naturalWidth)
+      setIntrinsicHeight(naturalHeight)
+      fitToScreen(naturalWidth, naturalHeight)
+    }
+  }
+
+  const handlePageLoadSuccess = (page: any) => {
+    const { width, height } = page
+    if (width > 0 && height > 0 && lastFitId.current !== floorPlan.id) {
+      setIntrinsicWidth(width)
+      setIntrinsicHeight(height)
+      fitToScreen(width, height)
+    }
+  }
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages)
@@ -88,39 +138,52 @@ export default function FloorPlanView({ floorPlan, pins, onPinClick }: FloorPlan
         </div>
 
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl">
-          <button onClick={() => setScale(s => Math.max(0.5, s - 0.1))} className="p-1 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 shadow-sm transition-all">
+          <button onClick={() => setScale(s => Math.max(0.1, s - 0.1))} className="p-1 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 shadow-sm transition-all" title="Zoom Out">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20 12H4"/></svg>
           </button>
-          <span className="text-[10px] font-black text-slate-500 w-10 text-center tabular-nums">{Math.round(scale * 100)}%</span>
-          <button onClick={() => setScale(s => Math.min(3, s + 0.1))} className="p-1 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 shadow-sm transition-all">
+          
+          <div className="flex flex-col items-center">
+             <span className="text-[9px] font-black text-slate-500 w-12 text-center tabular-nums leading-none mb-0.5">{Math.round(scale * 100)}%</span>
+             <button 
+               onClick={() => fitToScreen(intrinsicWidth, intrinsicHeight)}
+               className="text-[7px] font-black text-blue-500 hover:text-blue-600 tracking-tighter uppercase leading-none"
+             >
+               Fit to screen
+             </button>
+          </div>
+
+          <button onClick={() => setScale(s => Math.min(5, s + 0.1))} className="p-1 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 shadow-sm transition-all" title="Zoom In">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"/></svg>
           </button>
         </div>
       </div>
 
-      {/* 도면 영역 */}
-      <div className="flex-1 overflow-auto p-2 flex justify-center items-center bg-[#f1f5f9] dark:bg-slate-950 shadow-inner">
-        <div className="relative shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border border-white dark:border-slate-800 rounded-sm overflow-hidden">
+      <div ref={containerRef} className="flex-1 overflow-auto p-2 flex justify-center items-center bg-[#f1f5f9] dark:bg-slate-950 shadow-inner">
+        <div className="relative w-fit h-fit shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border border-white dark:border-slate-800 rounded-sm overflow-hidden shrink-0">
           {isImage ? (
             <img
               src={`/api/floor-plan/file?id=${floorPlan.id}`}
               alt={floorPlan.name}
-              style={{ width: `${scale * 1600}px`, height: 'auto' }}
-              className="display-block"
+              onLoad={handleImageLoad}
+              style={{ width: `${scale * intrinsicWidth}px`, height: 'auto' }}
+              className="block dark:invert dark:hue-rotate-180 dark:brightness-[0.85] dark:contrast-[1.1]"
             />
           ) : (
-            <Document
-              file={`/api/floor-plan/file?id=${floorPlan.id}`}
-              onLoadSuccess={onDocumentLoadSuccess}
-              loading={<div className="p-20 flex flex-col items-center gap-3"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Floor Plan</p></div>}
-            >
-              <Page
-                pageNumber={pageNumber}
-                width={1600 * scale}
-                renderAnnotationLayer={false}
-                renderTextLayer={false}
-              />
-            </Document>
+            <div className="dark:invert dark:hue-rotate-180 dark:brightness-[0.85] dark:contrast-[1.1]">
+              <Document
+                file={`/api/floor-plan/file?id=${floorPlan.id}`}
+                onLoadSuccess={onDocumentLoadSuccess}
+                loading={<div className="p-20 flex flex-col items-center gap-3"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Floor Plan</p></div>}
+              >
+                <Page
+                  pageNumber={pageNumber}
+                  onLoadSuccess={handlePageLoadSuccess}
+                  width={intrinsicWidth * scale}
+                  renderAnnotationLayer={false}
+                  renderTextLayer={false}
+                />
+              </Document>
+            </div>
           )}
 
           {/* 핀 오버레이 */}
@@ -170,12 +233,12 @@ export default function FloorPlanView({ floorPlan, pins, onPinClick }: FloorPlan
                 
                 {/* Main Pin Body */}
                 <div className={`
-                  relative w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-xl transition-all duration-300
-                  group-hover:scale-150 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.4)]
+                  relative w-5 h-5 rounded-full border-[2.5px] border-white dark:border-slate-900 shadow-[0_4px_10px_rgba(0,0,0,0.3)] transition-all duration-300
+                  group-hover:scale-125 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.4)]
                   ${SEVERITY_COLORS[pin.severity] || 'bg-slate-400'}
                 `}>
-                  {/* Center Dot */}
-                  <div className="absolute inset-0 m-auto w-1 h-1 bg-white rounded-full opacity-80" />
+                  {/* Center Dot for a more 'technical' feel */}
+                  <div className="absolute inset-0 m-auto w-1.5 h-1.5 bg-white rounded-full opacity-60 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
             </div>

@@ -19,55 +19,105 @@ async function ensureDir() {
 
 // ── GET ───────────────────────────────────────────────────────
 
-export async function GET() {
+// ── GET ───────────────────────────────────────────────────────
+
+export async function GET(req: NextRequest) {
   try {
-    // 가장 최근 도면 1개
-    const fp = await queryOne<{
-      id: number; name: string; file_name: string; page_count: number; created_at: string
-    }>(`SELECT id, name, file_name, page_count, created_at
-        FROM floor_plans ORDER BY created_at DESC LIMIT 1`)
+    const idParam = req.nextUrl.searchParams.get('id')
+    
+    // 1. 상세 조회 (특정 ID)
+    if (idParam) {
+      const id = parseInt(idParam, 10)
+      if (isNaN(id)) return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 })
 
-    if (!fp) return NextResponse.json({ ok: true, floorPlan: null, pins: [] })
+      const fp = await queryOne<{
+        id: number; name: string; file_name: string; page_count: number; created_at: string
+      }>(`SELECT id, name, file_name, page_count, created_at
+          FROM floor_plans WHERE id = $1`, [id])
 
-    // 핀 + 모터 상태
-    const pins = await query<{
-      id: number; motor_id: number; motor_name: string; location: string | null
-      page: number; x_pct: number; y_pct: number
-      severity: string; vel_y_rms: number | null
-      temperature_c: number | null; fault_type: string | null
+      if (!fp) return NextResponse.json({ ok: false, error: '도면을 찾을 수 없습니다.' }, { status: 404 })
+
+      // 핀 + 모터 상태
+      const pins = await query<{
+        id: number; motor_id: number; motor_name: string; location: string | null
+        page: number; x_pct: number; y_pct: number
+        severity: string; vel_y_rms: number | null
+        temperature_c: number | null; fault_type: string | null
+      }>(`
+        SELECT
+          mp.id, mp.motor_id, m.name AS motor_name, m.location,
+          mp.page,
+          mp.x_pct::float, mp.y_pct::float,
+          COALESCE(d.severity,
+            CASE
+              WHEN lm.hf_accel_x_rms >= 3.0 OR lm.vel_y_rms >= 7.1
+                OR lm.kurtosis_y >= 8.0 OR lm.temperature_c >= 70 THEN 'critical'
+              WHEN lm.hf_accel_x_rms >= 1.5 OR lm.vel_y_rms >= 2.8
+                OR lm.kurtosis_y >= 5.0 OR lm.temperature_c >= 60 THEN 'warning'
+              ELSE 'normal'
+            END
+          ) AS severity,
+          lm.vel_y_rms::float,
+          lm.temperature_c::float,
+          d.fault_type
+        FROM motor_pins mp
+        JOIN motors m ON m.id = mp.motor_id
+        LEFT JOIN sensors s ON s.motor_id = m.id AND s.status = 'active'
+        LEFT JOIN LATERAL (
+          SELECT vel_y_rms, temperature_c, kurtosis_y, hf_accel_x_rms
+          FROM measurements WHERE sensor_id = s.id ORDER BY time DESC LIMIT 1
+        ) lm ON true
+        LEFT JOIN LATERAL (
+          SELECT severity, fault_type
+          FROM diagnosis_results WHERE motor_id = m.id ORDER BY diagnosed_at DESC LIMIT 1
+        ) d ON true
+        WHERE mp.floor_plan_id = $1
+        ORDER BY mp.page, mp.id
+      `, [fp.id])
+
+      return NextResponse.json({ ok: true, floorPlan: fp, pins })
+    }
+
+    // 2. 전체 목록 조회 (ID 없을 때)
+    const list = await query<{
+      id: number; name: string; file_name: string; page_count: number; created_at: string;
+      critical_count: number; warning_count: number;
     }>(`
-      SELECT
-        mp.id, mp.motor_id, m.name AS motor_name, m.location,
-        mp.page,
-        mp.x_pct::float, mp.y_pct::float,
-        COALESCE(d.severity,
-          CASE
-            WHEN lm.hf_accel_x_rms >= 3.0 OR lm.vel_y_rms >= 7.1
-              OR lm.kurtosis_y >= 8.0 OR lm.temperature_c >= 70 THEN 'critical'
-            WHEN lm.hf_accel_x_rms >= 1.5 OR lm.vel_y_rms >= 2.8
-              OR lm.kurtosis_y >= 5.0 OR lm.temperature_c >= 60 THEN 'warning'
-            ELSE 'normal'
-          END
-        ) AS severity,
-        lm.vel_y_rms::float,
-        lm.temperature_c::float,
-        d.fault_type
-      FROM motor_pins mp
-      JOIN motors m ON m.id = mp.motor_id
-      LEFT JOIN sensors s ON s.motor_id = m.id AND s.status = 'active'
-      LEFT JOIN LATERAL (
-        SELECT vel_y_rms, temperature_c, kurtosis_y, hf_accel_x_rms
-        FROM measurements WHERE sensor_id = s.id ORDER BY time DESC LIMIT 1
-      ) lm ON true
-      LEFT JOIN LATERAL (
-        SELECT severity, fault_type
-        FROM diagnosis_results WHERE motor_id = m.id ORDER BY diagnosed_at DESC LIMIT 1
-      ) d ON true
-      WHERE mp.floor_plan_id = $1
-      ORDER BY mp.page, mp.id
-    `, [fp.id])
+      SELECT 
+        fp.id, fp.name, fp.file_name, fp.page_count, fp.created_at,
+        COUNT(CASE WHEN status.severity = 'critical' THEN 1 END)::int as critical_count,
+        COUNT(CASE WHEN status.severity = 'warning' THEN 1 END)::int as warning_count
+      FROM floor_plans fp
+      LEFT JOIN (
+        SELECT 
+          mp.floor_plan_id,
+          COALESCE(d.severity,
+            CASE
+              WHEN lm.hf_accel_x_rms >= 3.0 OR lm.vel_y_rms >= 7.1
+                OR lm.kurtosis_y >= 8.0 OR lm.temperature_c >= 70 THEN 'critical'
+              WHEN lm.hf_accel_x_rms >= 1.5 OR lm.vel_y_rms >= 2.8
+                OR lm.kurtosis_y >= 5.0 OR lm.temperature_c >= 60 THEN 'warning'
+              ELSE 'normal'
+            END
+          ) AS severity
+        FROM motor_pins mp
+        JOIN motors m ON m.id = mp.motor_id
+        LEFT JOIN sensors s ON s.motor_id = m.id AND s.status = 'active'
+        LEFT JOIN LATERAL (
+          SELECT vel_y_rms, temperature_c, kurtosis_y, hf_accel_x_rms
+          FROM measurements WHERE sensor_id = s.id ORDER BY time DESC LIMIT 1
+        ) lm ON true
+        LEFT JOIN LATERAL (
+          SELECT severity
+          FROM diagnosis_results WHERE motor_id = m.id ORDER BY diagnosed_at DESC LIMIT 1
+        ) d ON true
+      ) status ON fp.id = status.floor_plan_id
+      GROUP BY fp.id, fp.name, fp.file_name, fp.page_count, fp.created_at
+      ORDER BY fp.created_at DESC
+    `)
 
-    return NextResponse.json({ ok: true, floorPlan: fp, pins })
+    return NextResponse.json({ ok: true, list })
+
   } catch (err) {
     console.error('[GET /api/floor-plan]', err)
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
